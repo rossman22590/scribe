@@ -95,7 +95,7 @@ export default function Home() {
       <header className="absolute top-0 w-full z-10 py-4">
         <div className="container mx-auto flex justify-between items-center px-6 md:px-8 lg:px-12">
           <h1 className="text-xl font-normal tracking-tighter text-foreground/90">
-            snow leopard
+            AI Tutor Scribe
           </h1>
           <Button
             variant="outline"
@@ -154,8 +154,8 @@ export default function Home() {
               </span>
             </Button>
             <Button asChild variant="secondary" size="sm" className="rounded-full">
-              <Link href="https://github.com/will-lp1/snowleopard" target="_blank" rel="noopener noreferrer">
-                GitHub{" "}
+              <Link href="https://myapps.ai" target="_blank" rel="noopener noreferrer">
+                Get AI Tutor{" "}
                 <span className="inline-block ml-2 text-xs transition-transform group-hover:translate-x-0.5">
                   ›
                 </span>
@@ -167,7 +167,7 @@ export default function Home() {
             <div className="hero-frame">
               <Image
                 src="/images/lightmode.png"
-                alt="Snow Leopard Demo Preview"
+                alt="AI Tutor Scribe Demo Preview"
                 width={1200}
                 height={675}
                 className="rounded-lg block dark:hidden"
@@ -175,7 +175,7 @@ export default function Home() {
               />
               <Image
                 src="/images/darkmode.png"
-                alt="Snow Leopard Demo Preview (Dark Mode)"
+                alt="AI Tutor Scribe Demo Preview (Dark Mode)"
                 width={1200}
                 height={675}
                 className="rounded-lg hidden dark:block"
@@ -198,7 +198,7 @@ export default function Home() {
               Explore the Magic
             </h2>
             <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-              Discover how Snow Leopard transforms your writing experience with these core features.
+              Discover how AI Tutor Scribe transforms your writing experience with these core features.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -401,7 +401,7 @@ export default function Home() {
       </section>
       
       {/* Social Proof Section */}
-      <section id="social-proof" className="py-20 bg-background">
+      {/* <section id="social-proof" className="py-20 bg-background">
         <div className="container mx-auto px-6 md:px-8 lg:px-12">
           <div className="text-center mb-14">
             <h2 className={`text-4xl md:text-5xl font-medium ${crimson.className} tracking-tight text-foreground`}>
@@ -491,21 +491,21 @@ export default function Home() {
               className="rounded-full px-8 py-3"
               onClick={handleBeginClick}
             >
-              {hasSession ? "Open Snow Leopard" : "Get Started"}
+              {hasSession ? "Open AI Tutor Scribe" : "Get Started"}
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">No credit card required</p>
           </div>
         </div>
-      </section>
+      </section> */}
 
       <footer className="w-full border-t border-border bg-background/80 backdrop-blur-sm py-4 mt-8">
         <div className="container mx-auto px-6 md:px-8 lg:px-12 flex items-center justify-between text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} Snow Leopard. All rights reserved.</span>
-          <Button variant="outline" size="icon" className="size-8 shrink-0" asChild>
+          <span>© {new Date().getFullYear()} AI Tutor Scribe. All rights reserved.</span>
+          {/* <Button variant="outline" size="icon" className="size-8 shrink-0" asChild>
             <Link href="https://github.com/will-lp1/snowleopard" target="_blank" rel="noopener noreferrer">
               <Image src="/images/github-logo.png" alt="Github" width={16} height={16} className="dark:invert" />
             </Link>
-          </Button>
+          </Button> */}
         </div>
       </footer>
       <style jsx global>{`

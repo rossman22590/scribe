@@ -16,7 +16,7 @@ export const Overview = () => {
     >
       <div className="rounded-xl p-6 flex flex-col gap-4 leading-relaxed text-center max-w-md bg-card/50 border shadow-sm dark:border-white/10">
         
-        <h2 className="text-xl font-medium">Welcome to Snow Leopard</h2>
+        <h2 className="text-xl font-medium">Welcome to AI Tutor Scribe</h2>
         
         <p className="text-sm text-muted-foreground">
           A modern writing tool designed to enhance your creative process. 
@@ -36,10 +36,10 @@ export const Overview = () => {
             className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
             asChild
           >
-            <Link href="https://discord.gg/X49bQmnYbd" target="_blank" rel="noopener noreferrer">
+            {/* <Link href="https://discord.gg/X49bQmnYbd" target="_blank" rel="noopener noreferrer">
               <Image src="/images/discord-logo.png" alt="Discord" width={16} height={16} />
               Join the Discord
-            </Link>
+            </Link> */}
           </Button>
         </div>
     </motion.div>

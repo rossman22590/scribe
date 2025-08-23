@@ -36,7 +36,7 @@ export default async function Page({ params }: any) {
       <ThemeToggle />
       <Link href="/register">
         <Button variant="outline" className="fixed top-4 right-4 z-50">
-          Sign up to Snow Leopard
+          Sign up to AI Tutor Scribe
         </Button>
       </Link>
       <Blog

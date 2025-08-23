@@ -188,7 +188,7 @@ function PureChatHeader({
         className="size-8 shrink-0"
         asChild
       >
-        <Link
+        {/* <Link
           href="https://github.com/will-lp1/snowleopard"
           target="_blank"
           rel="noopener noreferrer"
@@ -200,7 +200,7 @@ function PureChatHeader({
             height={16}
             className="dark:invert"
           />
-        </Link>
+        </Link> */}
       </Button>
     </header>
   );
