@@ -165,7 +165,7 @@ export default function Home() {
           <div className="mt-16 flex justify-center w-full">
             <div className="hero-frame">
               <Image
-                src="/images/lightmode.png"
+                src="/images/shot.png"
                 alt="AI Tutor Scribe Demo Preview"
                 width={1200}
                 height={675}
@@ -173,7 +173,7 @@ export default function Home() {
                 priority={true}
               />
               <Image
-                src="/images/darkmode.png"
+                src="/images/shot.png"
                 alt="AI Tutor Scribe Demo Preview (Dark Mode)"
                 width={1200}
                 height={675}
