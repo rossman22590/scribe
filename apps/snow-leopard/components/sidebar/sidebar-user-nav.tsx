@@ -135,7 +135,17 @@ export function SidebarUserNav({ user }: { user: User | null }) {
     if (isBillingLoading || isSubscriptionLoading || subscriptionError || !subscription) return;
     setIsBillingLoading(true);
     try {
-      const { error: cancelError } = await authClient.subscription.cancel({
+      // Check if Stripe subscription functionality is available
+      if (!('subscription' in authClient)) {
+        console.error('Stripe subscription functionality is not available');
+        toast({
+          type: 'error',
+          description: 'Billing management is currently unavailable. Please contact support.'
+        });
+        return;
+      }
+
+      const { error: cancelError } = await (authClient as any).subscription.cancel({
         returnUrl: window.location.href,
       });
       if (cancelError) throw new Error(cancelError.message || 'Failed to redirect to billing portal.');
