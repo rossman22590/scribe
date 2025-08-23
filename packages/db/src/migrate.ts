@@ -11,10 +11,11 @@ const runMigrate = async () => {
     throw new Error('DATABASE_URL environment variable is required in packages/db/.env');
   }
 
-  // Configure postgres client (SSL only in production)
+  // Configure postgres client (SSL based on URL or environment)
   const migrationClient = postgres(process.env.DATABASE_URL, {
     max: 1,
-    ssl: process.env.NODE_ENV === 'production' ? 'require' : false
+    ssl: process.env.DATABASE_URL.includes('sslmode=require') ? 'require' :
+         process.env.NODE_ENV === 'production' ? 'require' : false
   });
 
   console.log('⏳ Running migrations...');
