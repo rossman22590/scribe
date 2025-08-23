@@ -295,7 +295,7 @@ export async function POST(request: Request) {
           availableTools: activeToolsList,
         });
 
-        const result = streamText({
+        const streamTextOptions: any = {
           model: myProvider.languageModel(selectedChatModel),
           system: dynamicSystemPrompt,
           messages,
@@ -307,7 +307,7 @@ export async function POST(request: Request) {
             chunking: 'word',
           }),
           tools: availableTools,
-          onFinish: async ({ response, reasoning }) => {
+          onFinish: async ({ response, reasoning }: any) => {
             if (userId) {
               try {
                 const sanitizedResponseMessages = sanitizeResponseMessages({
@@ -325,8 +325,8 @@ export async function POST(request: Request) {
                   })),
                 });
                 
-                await updateChatContextQuery({ 
-                  chatId, 
+                await updateChatContextQuery({
+                  chatId,
                   userId,
                   context: {
                     active: activeDocumentId,
@@ -342,7 +342,16 @@ export async function POST(request: Request) {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
           },
-        });
+        };
+
+        // GPT-5 doesn't support temperature=0, only default (1)
+        if (selectedChatModel === 'gpt-5') {
+          streamTextOptions.temperature = 1;
+        } else {
+          streamTextOptions.temperature = 0;
+        }
+
+        const result = streamText(streamTextOptions);
 
         result.consumeStream();
 

@@ -19,7 +19,7 @@ export default function MobileWarning() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 dark:bg-background/80 md:hidden">
       <Card className="w-11/12 max-w-sm">
         <CardHeader>
-          <CardTitle>Snow Leopard works best on desktop</CardTitle>
+          <CardTitle>AI Tutor Scribe works best on desktop</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">

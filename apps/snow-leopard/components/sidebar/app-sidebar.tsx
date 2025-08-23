@@ -54,7 +54,7 @@ export function AppSidebar({ user, initialDocuments }: { user: User | undefined;
         <div className="px-2 pb-2 flex flex-col space-y-2">
           {user && (
             <>
-              <FeedbackWidget/>
+              {/* <FeedbackWidget/> */}
               <SidebarUserNav user={user} />
             </>
           )}

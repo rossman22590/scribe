@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
     "@ai-sdk/groq": "^1.1.13",
+    "@ai-sdk/openai": "1.0.0",
     "@ai-sdk/react": "^1.1.20",
     "@better-auth/stripe": "^1.2.7",
     "@radix-ui/react-alert-dialog": "^1.1.2",
