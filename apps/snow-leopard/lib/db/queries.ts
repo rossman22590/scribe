@@ -950,3 +950,74 @@ export async function unpublishAllDocumentsByUserId({ userId }: { userId: string
     throw new Error('Failed to un-publish documents.');
   }
 }
+
+export async function getPublicDocuments({
+  limit = 50
+}: {
+  limit?: number;
+} = {}): Promise<Array<Pick<Document, 'id' | 'title' | 'createdAt' | 'author' | 'slug' | 'content'> & { username: string | null }>> {
+  try {
+    const data = await db
+      .select({
+        id: schema.Document.id,
+        title: schema.Document.title,
+        createdAt: schema.Document.createdAt,
+        author: schema.Document.author,
+        slug: schema.Document.slug,
+        content: schema.Document.content,
+        username: schema.user.username,
+      })
+      .from(schema.Document)
+      .innerJoin(schema.user, eq(schema.Document.userId, schema.user.id))
+      .where(
+        and(
+          eq(schema.Document.visibility, 'public'),
+          eq(schema.Document.is_current, true)
+        )
+      )
+      .orderBy(desc(schema.Document.createdAt))
+      .limit(limit);
+    
+    return data || [];
+  } catch (error) {
+    console.error('[DB Query - getPublicDocuments] Error fetching public documents:', error);
+    return [];
+  }
+}
+
+export async function getPublicDocumentsByUsername({
+  username,
+  limit = 50
+}: {
+  username: string;
+  limit?: number;
+}): Promise<Array<Pick<Document, 'id' | 'title' | 'createdAt' | 'author' | 'slug' | 'content'> & { username: string | null }>> {
+  try {
+    const data = await db
+      .select({
+        id: schema.Document.id,
+        title: schema.Document.title,
+        createdAt: schema.Document.createdAt,
+        author: schema.Document.author,
+        slug: schema.Document.slug,
+        content: schema.Document.content,
+        username: schema.user.username,
+      })
+      .from(schema.Document)
+      .innerJoin(schema.user, eq(schema.Document.userId, schema.user.id))
+      .where(
+        and(
+          eq(schema.Document.visibility, 'public'),
+          eq(schema.Document.is_current, true),
+          eq(schema.user.username, username)
+        )
+      )
+      .orderBy(desc(schema.Document.createdAt))
+      .limit(limit);
+    
+    return data || [];
+  } catch (error) {
+    console.error(`[DB Query - getPublicDocumentsByUsername] Error fetching public documents for user ${username}:`, error);
+    return [];
+  }
+}
