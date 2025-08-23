@@ -219,11 +219,11 @@ export default function UserCollectionPage() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Embed @{username}'s Collection</DialogTitle>
+                    <DialogTitle>Embed @{username}&apos;s Collection</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Customize and copy this code to embed @{username}'s document collection on your website:
+                      Customize and copy this code to embed @{username}&apos;s document collection on your website:
                     </p>
                     
                     {/* Layout Options */}
@@ -301,7 +301,7 @@ export default function UserCollectionPage() {
                         width={embedLayout === 'grid' ? '600' : '400'}
                         height="300"
                         className="border border-border rounded"
-                        title={`${username}'s documents`}
+                        title={`${username}&apos;s documents`}
                       />
                     </div>
                     
@@ -333,7 +333,7 @@ export default function UserCollectionPage() {
         {documents.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-lg text-muted-foreground">
-              @{username} hasn't published any documents yet.
+              @{username} hasn&apos;t published any documents yet.
             </p>
             <div className="mt-8">
               <Button asChild variant="outline">
