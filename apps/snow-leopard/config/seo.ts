@@ -4,7 +4,7 @@ const TITLE = "AI Tutor Scribe";
 const DESCRIPTION =
   "AI Tutor Scribe is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.cursorforwrit.ing/";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://scribe-ai-tutor.vercel.app";
 
 export const seoConfig: Metadata = {
   title: {
@@ -108,7 +108,7 @@ export const seoConfig: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: BASE_URL,
-    siteName: "Snow Leopard",
+    siteName: "AI Tutor Scribe",
     locale: "en_US",
     type: "website",
     images: [
@@ -116,7 +116,7 @@ export const seoConfig: Metadata = {
         url: '/api/og',
         width: 1200,
         height: 630,
-        alt: "Snow Leopard – Open Source Writing Tool",
+        alt: "AI Tutor Scribe –  Writing Tool",
       },
     ],
   },
@@ -124,12 +124,12 @@ export const seoConfig: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    site: "@WriteWithSaru",
-    creator: "@WriteWithSaru",
+    site: "@myaitutor",
+    creator: "@myaitutor",
     images: [
         {
           url: '/api/og',
-          alt: 'Snow Leopard - Tab, Tab, Apply Brilliance',
+          alt: 'AI Tutor Scribe - Tab, Tab, Apply Brilliance',
         },
       ],
   },

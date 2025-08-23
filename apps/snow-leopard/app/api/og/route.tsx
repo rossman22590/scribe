@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
               color: '#1f2937',
             }}
           >
-            snow leopard
+            AI Tutor Scribe
           </div>
           <div
             style={{
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
             color: '#1f2937',
           }}
         >
-          Snow Leopard
+          AI Tutor Scribe
         </div>
         <div
           style={{
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
             lineHeight: 1.4,
           }}
         >
-          The most satisfying, intuitive AI writing tool, and it&apos;s open source.
+          The most satisfying, intuitive AI writing tool.
         </div>
       </div>
     ),
