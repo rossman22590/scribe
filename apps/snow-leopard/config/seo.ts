@@ -1,28 +1,27 @@
 import type { Metadata } from "next";
 
-const TITLE = "Snow Leopard";
+const TITLE = "AI Tutor Scribe";
 const DESCRIPTION =
-  "Snow Leopard is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
+  "AI Tutor Scribe is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.cursorforwrit.ing/";
 
 export const seoConfig: Metadata = {
   title: {
     default: TITLE,
-    template: "%s | Snow Leopard", 
+    template: "%s | AI Tutor Scribe", 
   },
   description: DESCRIPTION,
-  applicationName: "Snow Leopard",
+  applicationName: "AI Tutor Scribe",
   category: "Productivity",
   keywords: [
     // Branding
-    "Snow Leopard",
+    "AI Tutor Scribe",
     "Saru",
-    "snow leopard",
-    "Snow Leopard Writing",
-    "Snow Leopard app",
-    "Snow Leopard AI",
-    "Snow Leopard open source",
+    "AI Tutor Scribe Writing",
+    "AI Tutor Scribe app",
+    "AI Tutor Scribe AI",
+    "AI Tutor Scribe open source",
 
     // Core Product
     "AI writing tool",
