@@ -88,8 +88,8 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
   };
 
   const handleUpgrade = async (planName: string, annual: boolean = false) => {
-    const displayPlan = displayPlans.find(p => 
-      p.planName.toLowerCase() === planName.toLowerCase() && 
+    const displayPlan = displayPlans.find(p =>
+      p.planName.toLowerCase() === planName.toLowerCase() &&
       p.annual === annual
     );
 
@@ -98,9 +98,19 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
     console.log(`Initiating subscription upgrade to plan: ${planName}, annual: ${annual}`);
 
     try {
+      // Check if Stripe subscription functionality is available
+      if (!('subscription' in authClient)) {
+        console.error('Stripe subscription functionality is not available');
+        toast({
+          type: 'error',
+          description: 'Subscription functionality is currently unavailable. Please contact support.'
+        });
+        return;
+      }
+
       const currentUrl = window.location.href;
 
-      const { error } = await authClient.subscription.upgrade({
+      const { error } = await (authClient as any).subscription.upgrade({
         plan: planName,
         annual: annual,
         successUrl: currentUrl,
@@ -109,15 +119,15 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
 
       if (error) {
         console.error('Stripe Checkout Error (via Better Auth):', error);
-        toast({ 
-          type: 'error', 
-          description: error.message || 'Failed to initiate checkout. Please try again.' 
+        toast({
+          type: 'error',
+          description: error.message || 'Failed to initiate checkout. Please try again.'
         });
       }
     } catch (err) {
       console.error('Unexpected error during upgrade:', err);
-      toast({ 
-        type: 'error', 
+      toast({
+        type: 'error',
         description: 'An unexpected error occurred. Please try again.'
       });
     } finally {
