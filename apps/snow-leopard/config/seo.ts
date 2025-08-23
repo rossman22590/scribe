@@ -39,15 +39,15 @@ export const seoConfig: Metadata = {
 
 
     // Open-source & Tech
-    "open-source notes app",
-    "open-source writing tool",
-    "open-source productivity tool",
-    "open-source editor",
-    "LLM writing app",
-    "open-source document editor",
-    "open-source knowledge management",
-    "self-hosted writing tool",
-    "self-hosted notes app",
+    // "open-source notes app",
+    // "open-source writing tool",
+    // "open-source productivity tool",
+    // "open-source editor",
+    // "LLM writing app",
+    // "open-source document editor",
+    // "open-source knowledge management",
+    // "self-hosted writing tool",
+    // "self-hosted notes app",
 
     // Productivity & Use Cases
     "productivity tool",
