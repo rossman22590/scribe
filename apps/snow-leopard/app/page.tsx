@@ -137,7 +137,6 @@ export default function Home() {
           {/* Tagline */}
           <p className="text-xl text-muted-foreground mt-4 max-w-md text-balance mx-auto font-light">
             The most satisfying, intuitive AI writing tool.
-            source.
           </p>
 
           {/* CTA Buttons */}
