@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 const TITLE = "AI Tutor Scribe";
 const DESCRIPTION =
-  "AI Tutor Scribe is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
+  "AI Tutor Scribe is a productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://scribe-ai-tutor.vercel.app";
 
