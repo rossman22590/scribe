@@ -10,7 +10,8 @@ import {
   integer,
   pgEnum,
   unique,
-  uniqueIndex
+  uniqueIndex,
+  AnyPgColumn
 } from 'drizzle-orm/pg-core';
 import { relations, Many, One } from 'drizzle-orm';
 import { InferSelectModel } from 'drizzle-orm';
@@ -94,7 +95,7 @@ export const documentVisibilityEnum = pgEnum('document_visibility', ['public', '
 export const Document = pgTable(
   'Document',
   {
-    id: uuid('id').notNull().defaultRandom(),
+    id: uuid('id').primaryKey().defaultRandom(),
     createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).notNull(),
     updatedAt: timestamp('updatedAt', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -111,19 +112,29 @@ export const Document = pgTable(
       .references(() => Chat.id),
     is_current: boolean('is_current').notNull(),
     visibility: text('visibility', { enum: ['public', 'private'] }).notNull().default('private'),
+    documentVersionId: uuid('document_version_id').references((): AnyPgColumn => DocumentVersion.id),
     style: jsonb('style'),
     author: text('author'),
     slug: text('slug'),
-  },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.id, table.createdAt] }),
-      userSlugUnique: uniqueIndex('Document_userId_slug_unique').on(table.userId, table.slug),
-    };
-  },
+  }
 );
 
 export type Document = InferSelectModel<typeof Document>;
+
+export const DocumentVersion = pgTable('DocumentVersion', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('documentId')
+    .notNull()
+    .references(() => Document.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull().default(1),
+  content: text('content').notNull(), 
+  diffContent: text('diff_content'),
+  previousVersionId: uuid('previous_version_id').references((): AnyPgColumn => DocumentVersion.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
 
 export const subscription = pgTable("subscription", {
   id: text('id').primaryKey(),
@@ -184,6 +195,13 @@ export const documentRelations = relations(Document, ({ one, many }) => ({
   }),
 }));
 
+export const documentVersionRelations = relations(DocumentVersion, ({ one }) => ({
+  document: one(Document, {
+    fields: [DocumentVersion.documentId],
+    references: [Document.id],
+  }),
+}));
+
 export const messageRelations = relations(Message, ({ one }) => ({
 	chat: one(Chat, {
 		fields: [Message.chatId],
@@ -197,3 +215,11 @@ export const subscriptionRelations = relations(subscription, ({ one }) => ({
 		references: [user.id],
 	}),
 }));
+
+export const waitlist = pgTable("waitlist", {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export type Waitlist = InferSelectModel<typeof waitlist>;

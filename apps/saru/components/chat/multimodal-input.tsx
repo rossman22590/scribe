@@ -1,0 +1,413 @@
+'use client';
+
+import type {
+  ChatRequestOptions,
+  UIMessage,
+} from 'ai';
+import cx from 'classnames';
+import type React from 'react';
+import {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  type Dispatch,
+  type SetStateAction,
+  type ChangeEvent,
+  memo,
+} from 'react';
+import { toast } from 'sonner';
+import { useLocalStorage, useWindowSize } from 'usehooks-ts';
+import { MentionsInput, Mention, type SuggestionDataItem, type MentionsInputProps } from 'react-mentions';
+import { ArrowUpIcon, StopIcon } from '../icons';
+import { Button } from '../ui/button';
+import { SuggestedActions } from '../suggested-actions';
+import { UseChatHelpers } from '@ai-sdk/react';
+import { useDocument } from '@/hooks/use-document';
+import { cn } from '@/lib/utils';
+import { useAiOptionsValue } from '@/hooks/ai-options';
+
+interface DocumentSuggestion extends SuggestionDataItem {
+  id: string;
+  display: string;
+}
+
+export interface MentionedDocument {
+  id: string;
+  title: string;
+}
+
+const mentionInputStyle: MentionsInputProps['style'] = {
+  control: {
+    fontSize: 14,
+    lineHeight: 1.5,
+    borderRadius: '1rem', // rounded-2xl
+    backgroundColor: 'hsl(var(--muted))', // Use CSS variable
+    border: '1px solid hsl(var(--border))', // Use CSS variable
+    color: 'hsl(var(--foreground))', // Use CSS variable for text
+  },
+  '&multiLine': {
+    control: {
+      fontFamily: 'inherit',
+      minHeight: 56,
+    },
+    highlighter: {
+      padding: 9, // Adjust to match textarea padding
+      paddingBottom: 41, // Match pb-10
+      border: '1px solid transparent',
+    },
+    input: {
+      padding: '9px 12px', // Match highlighter padding
+      paddingBottom: 41,
+      minHeight: 30, // Adjust for alignment
+      outline: 'none',
+      border: 'none',
+      lineHeight: 1.5,
+      fontSize: 14, // text-base
+      color: 'hsl(var(--foreground))', // Use CSS variable for input text
+    },
+  },
+  suggestions: {
+    list: {
+      backgroundColor: 'hsl(var(--background))',
+      border: '1px solid hsl(var(--border))',
+      fontSize: 14,
+      borderRadius: '0.375rem',
+      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+      maxHeight: 240,
+      overflowY: 'auto',
+      zIndex: 20,
+      marginTop: '-1px',
+      position: 'absolute',
+      bottom: '100%',
+      left: 0,
+      width: 320,
+    },
+    item: {
+      padding: '8px 12px',
+      borderBottom: '1px solid hsl(var(--border))',
+      color: 'hsl(var(--foreground))',
+      '&focused': {
+        backgroundColor: 'hsl(var(--accent))',
+        color: 'hsl(var(--accent-foreground))',
+      },
+    },
+  },
+};
+    
+const mentionStyleLight: React.CSSProperties = {
+  backgroundColor: '#dbeafe',
+  padding: '1px 2px',
+  borderRadius: '0.25rem',
+  fontWeight: 500,
+  boxDecorationBreak: 'clone',
+  WebkitBoxDecorationBreak: 'clone',
+};
+
+const mentionStyleDark: React.CSSProperties = {
+  backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  padding: '1px 2px',
+  borderRadius: '0.25rem',
+  fontWeight: 500,
+  boxDecorationBreak: 'clone',
+  WebkitBoxDecorationBreak: 'clone',
+};
+
+function PureMultimodalInput({
+  chatId,
+  selectedChatModel,
+  input,
+  setInput,
+  status,
+  stop,
+  messages,
+  setMessages,
+  sendMessage,
+  handleSubmit,
+  className,
+  confirmedMentions,
+  onMentionsChange,
+}: {
+  chatId: string;
+  selectedChatModel: string,
+  input: string; 
+  setInput: (input: string) => void; 
+  status: UseChatHelpers<UIMessage>['status'];
+  stop: () => void;
+  messages: Array<UIMessage>;
+  setMessages: Dispatch<SetStateAction<Array<UIMessage>>>;
+  sendMessage: UseChatHelpers<UIMessage>['sendMessage']; 
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void; 
+  className?: string;
+  confirmedMentions: MentionedDocument[];
+  onMentionsChange: (mentions: MentionedDocument[]) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentionInputRef = useRef<any>(null);
+  const { width } = useWindowSize();
+  const { document: currentDoc } = useDocument();
+  
+  
+  const [inputValue, setInputValue] = useState(input);
+  const [markupValue, setMarkupValue] = useState('');
+  const [plainTextValue, setPlainTextValue] = useState('');
+  const { writingStyleSummary, applyStyle } = useAiOptionsValue();
+
+  const [localStorageInput, setLocalStorageInput] = useLocalStorage('input', '');
+  
+  useEffect(() => {
+    const initialVal = localStorageInput || '';
+    setInputValue(initialVal);
+    setInput(initialVal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setInput(inputValue);
+    setLocalStorageInput(inputValue);
+    const mentions = parseMentionsFromMarkup(markupValue);
+    onMentionsChange(mentions);
+  }, [inputValue, markupValue, setInput, setLocalStorageInput, onMentionsChange]);
+
+  const parseMentionsFromMarkup = (markup: string): MentionedDocument[] => {
+    const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    const mentions: MentionedDocument[] = [];
+    let match;
+    while ((match = mentionRegex.exec(markup)) !== null) {
+      mentions.push({ title: match[1], id: match[2] });
+    }
+    return mentions;
+  };
+
+  const handleInputChange = (
+    event: any,
+    newValue: string,
+    newPlainTextValue: string,
+    mentions: Array<{ id: string; display: string }>
+  ) => {
+    setInputValue(newValue);
+    setMarkupValue(newValue);
+    setPlainTextValue(newPlainTextValue);
+  };
+
+
+  const submitForm = useCallback(() => {
+    const contextData: {
+      activeDocumentId?: string;
+      mentionedDocumentIds?: string[];
+    } = {};
+    
+    if (currentDoc.documentId && currentDoc.documentId !== 'init') {
+      contextData.activeDocumentId = currentDoc.documentId;
+    }
+    if (confirmedMentions.length > 0) {
+      contextData.mentionedDocumentIds = confirmedMentions.map(doc => doc.id);
+    }
+    
+    const parts: any[] = [{ type: 'text', text: inputValue }];
+
+    const requestBody = {
+      chatId: chatId,
+      selectedChatModel: selectedChatModel,
+      aiOptions: { writingStyleSummary, applyStyle },
+      data: contextData,
+    };
+  
+    sendMessage(
+      { 
+        parts: parts
+      },
+      {
+        body: requestBody,
+      }
+    );
+
+    setInputValue('');
+    setMarkupValue('');
+    setPlainTextValue('');
+    setInput('');
+    onMentionsChange([]);
+
+    if (width && width > 768) {
+      mentionInputRef.current?.focus();
+    }
+  }, [
+    inputValue,
+    plainTextValue,
+    currentDoc.documentId,
+    confirmedMentions,
+    sendMessage,
+    setInput,
+    onMentionsChange,
+    width,
+  ]);
+
+  const fetchSuggestions = (
+    query: string,
+    callback: (data: SuggestionDataItem[]) => void
+  ) => {
+    if (!query) {
+      callback([]);
+      return;
+    }
+    fetch(`/api/search?query=${encodeURIComponent(query)}`)
+      .then(response => {
+        if (!response.ok) throw new Error(response.statusText);
+        return response.json();
+      })
+      .then(data => {
+        const suggestions = (data.results || []).map((doc: any) => ({
+          id: doc.id,
+          display: doc.title,
+        }));
+        callback(suggestions);
+      })
+      .catch(error => {
+        console.error('Error searching documents:', error);
+        callback([]);
+      });
+  };
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    setIsDarkMode(document.documentElement.classList.contains('dark'));
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'));
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect(); 
+  }, []);
+
+  const currentMentionStyle = isDarkMode ? mentionStyleDark : mentionStyleLight;
+
+  const renderSuggestion = (suggestion: SuggestionDataItem, search: string, highlightedDisplay: React.ReactNode, index: number, focused: boolean) => {
+    return (
+      <div className={cn("px-1 py-1", { "bg-accent text-accent-foreground": focused })}>
+        <span>{highlightedDisplay}</span>
+      </div>
+    );
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+
+      if (status === 'ready' && inputValue.trim() !== '') {
+        submitForm();
+      } else if (status !== 'ready') {
+         toast.error('Please wait for the model to finish its response!');
+      }
+    }
+  };
+
+  return (
+    <div className="relative w-full flex flex-col gap-4" onKeyDown={handleKeyDown}>
+      {messages.length === 0 &&
+        confirmedMentions.length === 0 && (
+          <SuggestedActions sendMessage={sendMessage} chatId={chatId} />
+        )}
+
+      <div className="relative">
+        <MentionsInput
+          inputRef={mentionInputRef}
+          style={mentionInputStyle} 
+          value={inputValue}
+          onChange={handleInputChange}
+          placeholder="Send a message... (type @ to mention documents)"
+          allowSpaceInQuery
+          className={cx(className)} 
+          classNames={{
+            input: 'placeholder:text-muted-foreground',
+          }}
+          a11ySuggestionsListLabel={"Suggested documents for mention"}
+          singleLine={false}
+        >
+          <Mention
+            trigger="@"
+            data={fetchSuggestions}
+            renderSuggestion={renderSuggestion}
+            markup="@[__display__](__id__)"
+            displayTransform={(id: string, display: string) => `@${display}`}
+            appendSpaceOnAdd
+            className="mention-item"
+            style={currentMentionStyle}
+          />
+        </MentionsInput>
+        
+        <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
+          {status === 'submitted' ? (
+            <StopButton stop={stop} setMessages={setMessages} />
+          ) : (
+            <SendButton
+              input={inputValue}
+              submitForm={submitForm}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const MultimodalInput = memo(
+  PureMultimodalInput,
+  (prevProps, nextProps) => {
+    if (prevProps.input !== nextProps.input) return false;
+    if (prevProps.status !== nextProps.status) return false;
+    return true;
+  },
+);
+
+function PureStopButton({
+  stop,
+  setMessages,
+}: {
+  stop: () => void;
+  setMessages: Dispatch<SetStateAction<Array<UIMessage>>>;
+}) {
+  return (
+    <Button
+      data-testid="stop-button"
+      className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
+      onClick={(event) => {
+        event.preventDefault();
+        stop();
+      }}
+    >
+      <StopIcon size={14} />
+    </Button>
+  );
+}
+
+const StopButton = memo(PureStopButton);
+
+function PureSendButton({
+  submitForm,
+  input,
+}: {
+  submitForm: () => void;
+  input: string;
+}) {
+  return (
+    <Button
+      data-testid="send-button"
+      className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
+      onClick={(event) => {
+        event.preventDefault();
+        submitForm();
+      }}
+      disabled={input.trim().length === 0}
+    >
+      <ArrowUpIcon size={14} />
+    </Button>
+  );
+}
+
+const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
+  if (prevProps.input !== nextProps.input) return false;
+  return true;
+});

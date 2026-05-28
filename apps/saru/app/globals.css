@@ -1,0 +1,260 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .ease-out-quad {
+        transition-timing-function: cubic-bezier(.25, .46, .45, .94);
+    }
+
+    .ease-out-cubic {
+        transition-timing-function: cubic-bezier(.215, .61, .355, 1);
+    }
+
+    .ease-out-quart {
+        transition-timing-function: cubic-bezier(.165, .84, .44, 1);
+    }
+
+    .ease-out-quint {
+        transition-timing-function: cubic-bezier(.23, 1, .32, 1);
+    }
+
+    .ease-out-expo {
+        transition-timing-function: cubic-bezier(.19, 1, .22, 1);
+    }
+
+    .ease-out-circ {
+        transition-timing-function: cubic-bezier(.075, .82, .165, 1);
+    }
+
+    .ease-in-out-quad {
+        transition-timing-function: cubic-bezier(.455, .03, .515, .955);
+    }
+
+    .ease-in-out-cubic {
+        transition-timing-function: cubic-bezier(.645, .045, .355, 1);
+    }
+
+    .ease-in-out-quart {
+        transition-timing-function: cubic-bezier(.77, 0, .175, 1);
+    }
+
+    .ease-in-out-quint {
+        transition-timing-function: cubic-bezier(.86, 0, .07, 1);
+    }
+
+    .ease-in-out-expo {
+        transition-timing-function: cubic-bezier(1, 0, 0, 1);
+    }
+
+    .ease-in-out-circ {
+        transition-timing-function: cubic-bezier(.785, .135, .15, .86);
+    }
+
+    /* Respect reduced motion preferences */
+    @media (prefers-reduced-motion: reduce) {
+        .ease-out-quad,
+        .ease-out-cubic,
+        .ease-out-quart,
+        .ease-out-quint,
+        .ease-out-expo,
+        .ease-out-circ,
+        .ease-in-out-quad,
+        .ease-in-out-cubic,
+        .ease-in-out-quart,
+        .ease-in-out-quint,
+        .ease-in-out-expo,
+        .ease-in-out-circ {
+            transition-timing-function: ease !important;
+        }
+    }
+
+    .touch-hitbox {
+        position: relative;
+    }
+
+    .touch-hitbox::before {
+        content: "";
+        position: absolute;
+        display: block;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        min-height: 44px;
+        min-width: 44px;
+        z-index: 9999;
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+        .hover-trigger:hover * {
+            transition-duration: 0ms !important;
+        }
+    }
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 0 0% 8%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 8%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 8%;
+        --primary: 0 0% 8%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 0 0% 97%;
+        --secondary-foreground: 0 0% 8%;
+        --muted: 0 0% 97%;
+        --muted-foreground: 0 0% 40%;
+        --accent: 0 0% 97%;
+        --accent-foreground: 0 0% 8%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 90%;
+        --input: 0 0% 97%;
+        --ring: 0 0% 8%;
+        --radius: 0.5rem;
+        --sidebar-background: 0 0% 100%;
+        --sidebar-foreground: 0 0% 8%;
+        --sidebar-primary: 0 0% 8%;
+        --sidebar-primary-foreground: 0 0% 98%;
+        --sidebar-accent: 0 0% 97%;
+        --sidebar-accent-foreground: 0 0% 8%;
+        --sidebar-border: 0 0% 90%;
+        --sidebar-ring: 0 0% 8%;
+    }
+    
+    .dark {
+        --background: 0 0% 8%;
+        --foreground: 0 0% 98%;
+        --card: 0 0% 8%;
+        --card-foreground: 0 0% 98%;
+        --popover: 0 0% 8%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 0 0% 8%;
+        --secondary: 0 0% 14%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 0 0% 14%;
+        --muted-foreground: 0 0% 60%;
+        --accent: 0 0% 14%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 18%;
+        --input: 0 0% 14%;
+        --ring: 0 0% 83.9%;
+        --sidebar-background: 0 0% 8%;
+        --sidebar-foreground: 0 0% 98%;
+        --sidebar-primary: 0 0% 98%;
+        --sidebar-primary-foreground: 0 0% 8%;
+        --sidebar-accent: 0 0% 14%;
+        --sidebar-accent-foreground: 0 0% 98%;
+        --sidebar-border: 0 0% 18%;
+        --sidebar-ring: 0 0% 83.9%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+.editor-area {
+    background: hsl(8% 1% 99%);
+}
+.dark .editor-area {
+    background: hsl(0 0% 0%);
+    color: hsl(0 0% 100%);
+}
+
+.skeleton {
+    * {
+        pointer-events: none !important;
+    }
+
+    *[class^="text-"] {
+        color: transparent;
+        @apply rounded-md bg-foreground/20 select-none animate-pulse;
+    }
+
+    .skeleton-bg {
+        @apply bg-foreground/10;
+    }
+
+    .skeleton-div {
+        @apply bg-foreground/20 animate-pulse;
+    }
+}
+
+.ProseMirror {
+    position: relative;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    -webkit-font-variant-ligatures: none;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0;
+    outline: none;
+}
+
+/* Override prose max-width */
+.prose {
+    max-width: 100% !important;
+}
+
+.prose .ProseMirror > * + * {
+    margin-top: 1em;
+}
+
+.prose .ProseMirror > *:first-child {
+    margin-top: 0;
+}
+
+.cm-editor,
+.cm-gutters {
+    background: inherit !important;
+    outline: none !important;
+}
+
+.ͼo.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+.ͼo.cm-selectionBackground,
+.ͼo.cm-content::selection {
+    @apply bg-muted !important;
+}
+
+.cm-activeLine,
+.cm-activeLineGutter {
+    @apply bg-transparent !important;
+}
+
+.cm-activeLine {
+    @apply rounded-r-sm !important;
+}
+
+.cm-lineNumbers {
+    @apply min-w-7;
+}
+
+.cm-foldGutter {
+    @apply min-w-3;
+}
+
+.cm-lineNumbers .cm-activeLineGutter {
+    @apply rounded-l-sm !important;
+}
+
+.suggestion-highlight {
+    @apply bg-accent text-accent-foreground hover:bg-accent/80;
+}

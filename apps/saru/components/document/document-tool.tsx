@@ -1,0 +1,420 @@
+'use client';
+
+import { memo, useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+import { FileIcon, LoaderIcon, MessageIcon, PencilEditIcon, CheckIcon, CheckCircleFillIcon, CrossIcon } from '@/components/icons';
+import { toast } from 'sonner';
+import { useDocument } from '@/hooks/use-document';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const DiffView = dynamic(() => import('./diffview').then(m => m.DiffView), {
+  ssr: false,
+  loading: () => <div className="p-3 text-xs text-muted-foreground">Loading diff…</div>,
+});
+
+const toolAnimationStyles = `
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .tool-enter {
+    animation: slideInUp 0.25s cubic-bezier(.215, .61, .355, 1);
+  }
+
+  .status-enter {
+    animation: fadeInScale 0.2s cubic-bezier(.215, .61, .355, 1);
+  }
+
+  .state-transition {
+    transition: all 0.2s cubic-bezier(.645, .045, .355, 1);
+  }
+
+  .fade-out {
+    opacity: 0;
+    transform: scale(0.98);
+    pointer-events: none;
+  }
+
+  .fade-in {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tool-enter,
+    .status-enter,
+    .state-transition {
+      animation: none;
+      transition: none;
+    }
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = toolAnimationStyles;
+  document.head.appendChild(style);
+}
+
+const getActionText = (
+  type: 'create' | 'stream' | 'update',
+  tense: 'present' | 'past',
+) => {
+  switch (type) {
+    case 'create':
+      return tense === 'present' ? 'Creating document' : 'Document created';
+    case 'stream':
+      return tense === 'present' ? 'Streaming content for' : 'Content streamed for';
+    case 'update':
+      return tense === 'present' ? 'Proposing update for' : 'Update proposed for';
+
+    default:
+      return null;
+  }
+};
+
+export interface DocumentToolResultProps {
+  type: 'create' | 'stream' | 'update';
+  result: {
+    id?: string;
+    title?: string;
+    originalContent?: string;
+    newContent?: string;
+    status?: string;
+    error?: string;
+    content?: string;
+    message?: string;
+    toolCallId?: string;
+    applied?: boolean;
+    rejected?: boolean;
+  };
+  isReadonly: boolean;
+  chatId?: string;
+  messageId?: string;
+}
+
+function PureDocumentToolResult({
+  type,
+  result,
+  isReadonly,
+  chatId,
+  messageId,
+}: DocumentToolResultProps) {
+  const { document, setDocument } = useDocument();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isApplied, setIsApplied] = useState(() => result.applied ?? false);
+  const [isRejected, setIsRejected] = useState(() => result.rejected ?? false);
+
+  const isUpdateProposal =
+    type === 'update' && 
+    result.originalContent !== undefined && 
+    result.newContent !== undefined &&
+    result.originalContent !== result.newContent;
+
+  useEffect(() => {
+    if (isUpdateProposal && result.id && result.newContent != null && !isApplied && !isRejected) {
+      const event = new CustomEvent('preview-document-update', {
+        detail: {
+          documentId: result.id,
+          newContent: result.newContent,
+          originalContent: result.originalContent,
+        },
+      });
+      window.dispatchEvent(event);
+    }
+  }, [isUpdateProposal, result.id, result.newContent, result.originalContent, isApplied, isRejected]);
+
+  const handleApplyUpdate = useCallback(() => {
+    const newContent = result.newContent;
+    if (type !== 'update' || typeof newContent !== 'string' || !result.id || isSaving) return;
+    setIsSaving(true);
+    setDocument(prev => ({
+      ...prev,
+      content: newContent
+    }));
+
+    window.dispatchEvent(new CustomEvent('tool-result', {
+      detail: {
+        toolCallId: result.toolCallId,
+        result: {
+          id: result.id,
+          title: result.title,
+          originalContent: result.originalContent,
+          newContent: newContent,
+          status: 'Update accepted and applied.',
+          action: 'update-accepted',
+          transient: false,
+        }
+      }
+    }));
+
+    window.dispatchEvent(new CustomEvent('apply-document-update', {
+      detail: { documentId: result.id, newContent: newContent, transient: false },
+    }));
+    setIsApplied(true);
+
+    // Persist applied state to chat metadata
+    if (chatId && messageId && result.toolCallId) {
+      fetch('/api/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          chatId,
+          toolCallId: result.toolCallId,
+          applied: true,
+          rejected: false,
+        }),
+      }).catch(err => {
+        console.error('[DocumentToolResult] Failed to persist applied state:', err);
+      });
+    }
+
+    fetch('/api/document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: result.id, content: newContent }),
+    })
+      .then(async response => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || response.statusText);
+        }
+      })
+      .catch(err => {
+        console.error('[DocumentToolResult] Save update error:', err);
+        toast.error(`Failed to save update: ${err.message}`);
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
+  }, [result.id, result.newContent, result.title, result.originalContent, result.toolCallId, type, isSaving, setDocument]);
+
+  const handleRejectUpdate = useCallback(() => {
+    if (type !== 'update' || !result.id || result.originalContent == null) return;
+
+    setIsRejected(true);
+
+    // Persist rejected state to chat metadata
+    if (chatId && messageId && result.toolCallId) {
+      fetch('/api/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          chatId,
+          toolCallId: result.toolCallId,
+          applied: false,
+          rejected: true,
+        }),
+      }).catch(err => {
+        console.error('[DocumentToolResult] Failed to persist rejected state:', err);
+      });
+    }
+
+    window.dispatchEvent(new CustomEvent('tool-result', {
+      detail: {
+        toolCallId: result.toolCallId,
+        result: {
+          id: result.id,
+          title: result.title,
+          originalContent: result.originalContent,
+          newContent: result.newContent,
+          status: 'Update proposal rejected.',
+          action: 'update-rejected',
+          transient: false,
+        }
+      }
+    }));
+
+    const event = new CustomEvent('cancel-document-update', {
+      detail: {
+        documentId: result.id,
+        transient: false,
+      },
+    });
+    window.dispatchEvent(event);
+    toast.info('Update proposal rejected.');
+  }, [result.id, result.title, result.originalContent, result.newContent, result.toolCallId, type, chatId, messageId]);
+
+  if (result.error) {
+     return (
+        <div className={cn("bg-background border border-destructive/50 rounded-xl w-full max-w-md flex flex-row items-center text-sm overflow-hidden p-3 gap-3", "tool-enter")}>
+          <div className="text-destructive flex-shrink-0">
+            <MessageIcon size={16} />
+          </div>
+          <div className="flex-grow">
+            <div className="text-destructive font-medium">
+              {`Failed to ${type} document${result.title ? ` "${result.title}"` : ''}`}
+            </div>
+            <div className="text-xs text-destructive/80 mt-0.5">
+              <span className="font-mono">{result.error}</span>
+            </div>
+          </div>
+        </div>
+     )
+  }
+
+  if (isUpdateProposal) {
+    return (
+      <div className={cn("bg-background border rounded-xl w-full max-w-md flex flex-col items-start text-sm overflow-hidden", "tool-enter")}>
+        <div className="p-3 flex flex-row gap-3 items-start w-full border-b bg-muted/30">
+          <div className="text-muted-foreground mt-0.5 flex-shrink-0">
+            <PencilEditIcon size={16}/>
+          </div>
+          <div className="text-left flex-grow text-foreground">
+            {`${getActionText(type, 'past')} "${result.title ?? 'document'}"`}
+            {result.status && <span className="text-xs text-muted-foreground ml-1">({result.status})</span>}
+          </div>
+        </div>
+
+        {!isApplied && !isRejected ? (
+          <>
+        <div className={cn("p-3 w-full max-h-60 overflow-y-auto text-xs", "state-transition", isApplied || isRejected ? "fade-out" : "fade-in")}>
+          <DiffView
+            oldContent={result.originalContent ?? ''}
+            newContent={result.newContent ?? ''}
+          />
+        </div>
+            <div className={cn("p-2 border-t w-full flex justify-end bg-muted/30 gap-2", "state-transition", isApplied || isRejected ? "fade-out" : "fade-in")}>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleRejectUpdate}
+            disabled={isSaving || isApplied || isRejected}
+            className="text-xs flex items-center gap-1.5"
+          >
+            <CrossIcon size={14} />
+            Reject
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleApplyUpdate}
+            disabled={isSaving || isApplied || isRejected}
+            className="text-xs flex items-center gap-1.5"
+          >
+            <CheckIcon size={14} />
+            {isSaving ? 'Saving…' : 'Accept'}
+          </Button>
+        </div>
+          </>
+        ) : (
+          <div className={cn("state-transition status-enter w-full", isApplied || isRejected ? "fade-in" : "fade-out")}>
+            {isApplied ? (
+              <div className="flex items-center gap-2 p-3 w-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                <CheckCircleFillIcon size={16} />
+                <span className="text-sm">Update applied to document.</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 w-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                <CrossIcon size={16} />
+                <span className="text-sm">Update proposal rejected.</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const successMessage =
+    type === 'create'
+      ? (result.message || 'Document initialized successfully.')
+      : type === 'stream'
+        ? (result.message || 'Content generation completed.')
+          : 'Operation successful.';
+
+  const SuccessIcon = CheckCircleFillIcon;
+
+  return (
+    <div className={cn("bg-background border rounded-xl w-full max-w-md text-sm overflow-hidden", "tool-enter")}>
+      <div className="p-3 flex flex-row items-center gap-3">
+         <div className="text-green-600 flex-shrink-0">
+           <SuccessIcon size={16}/>
+         </div>
+         <div className="flex-grow">
+           <div className="text-foreground">
+             {`${getActionText(type, 'past')} ${result.title ? `"${result.title}"` : '(active document)'}`}
+             {result.status && (
+               <span className="ml-2 text-xs text-muted-foreground">({result.status})</span>
+             )}
+           </div>
+           <div className="text-xs text-muted-foreground mt-0.5">
+             {successMessage}
+           </div>
+         </div>
+      </div>
+
+    </div>
+  );
+}
+
+export const DocumentToolResult = memo(PureDocumentToolResult);
+
+interface DocumentToolCallProps {
+  type: 'create' | 'stream' | 'update';
+  args: { title?: string };
+  isReadonly: boolean;
+}
+
+function PureDocumentToolCall({
+  type,
+  args = { title: '' },
+  isReadonly,
+}: DocumentToolCallProps) {
+  const { document: localDocument } = useDocument();
+  const docTitle = localDocument?.title ?? '';
+
+  const titleArg = args.title ?? '';
+  const displayTitle = type === 'create' && docTitle.trim()
+    ? docTitle
+    : titleArg.trim();
+
+  const CallIcon =
+    type === 'create' ? FileIcon :
+    type === 'stream' ? MessageIcon :
+    type === 'update' ? PencilEditIcon :
+    LoaderIcon;
+
+  return (
+    <div
+      className={cn("bg-background border rounded-xl w-full max-w-md flex flex-row items-center justify-between gap-3 text-sm overflow-hidden", "tool-enter")}
+    >
+      <div className="p-3 flex flex-row gap-3 items-center w-full bg-muted/30">
+        <div className="text-muted-foreground flex-shrink-0">
+          <CallIcon size={16}/>
+        </div>
+        <div className="text-left flex-grow text-foreground">
+          {`${getActionText(type, 'present')}`}{' '}
+          {displayTitle ? `"${displayTitle}"` : '(active document)'}
+        </div>
+        <div className="animate-spin text-muted-foreground flex-shrink-0">
+            <LoaderIcon size={16} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const DocumentToolCall = memo(PureDocumentToolCall);
