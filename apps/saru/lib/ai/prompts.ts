@@ -32,7 +32,7 @@ export function buildArtifactsPrompt(
 
   if (tools.includes('streamingDocument')) {
     toolGuidelines.push(
-      '• streamingDocument: Use when the user wants to generate new content or fill an empty document. Call this tool to create content based on a title/prompt. If prior webSearch results are relevant, pass them into the tool as context/sources so the writing is grounded. Output ONLY the content, no explanations or instructions.'
+      '• streamingDocument: Use when the user wants to generate new content or fill an empty document. Call this tool to create content based on a title/prompt. If prior webSearch results are relevant, pass them into the tool as context/sources so the writing is grounded. Do not write the generated content in chat; the tool will place it in the document.'
     );
   }
 
@@ -56,6 +56,7 @@ ${toolGuidelines.join('\n')}
 • Only use tools when they directly address the user's request
 • Never mention tool names, tool call syntax, or technical processes to the user
 • Never output raw JSON, JSON Schema, tool arguments, or function-call syntax as assistant text
+• Never output Anthropic XML/tool tags such as <function_calls>, <invoke>, or antml/an:tml blocks
 • Never output tool call syntax like "toolName(param=value)" as text - tools are called automatically, not written as text`;
   }
 

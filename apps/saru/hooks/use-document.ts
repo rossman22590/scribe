@@ -118,6 +118,7 @@ export function useDocument() {
         status: 'idle',
         content: '',
       });
+      window.dispatchEvent(new CustomEvent('reset-chat-state'));
       
       setOpenMobile(false);
       
@@ -174,6 +175,7 @@ export function useDocument() {
       if (openMobile) {
         setOpenMobile(false);
       }
+      window.dispatchEvent(new CustomEvent('reset-chat-state'));
       
       toast.success('Document created', { 
         id: 'document-created',
@@ -295,6 +297,7 @@ export function useDocument() {
       }
       
       if (params.navigateAfterCreate) {
+        window.dispatchEvent(new CustomEvent('reset-chat-state'));
         router.push(`/documents/${documentId}`);
       }
       

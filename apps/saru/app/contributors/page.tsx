@@ -147,7 +147,6 @@ export default function ContributorsPage() {
       {/* Header */}
       <Header
         hasSession={false}
-        animatedStarCount={animatedStarCount}
         onBeginClick={handleBeginClick}
       />
 
@@ -158,7 +157,7 @@ export default function ContributorsPage() {
             Our Contributors
           </h1>
           <p className="text-base md:text-lg text-muted-foreground mt-3 max-w-xl">
-            Building Saru together
+            Building Scribe together
           </p>
         </div>
       </section>
@@ -320,7 +319,7 @@ export default function ContributorsPage() {
       </main>
 
       {/* Footer */}
-      <Footer animatedStarCount={animatedStarCount} />
+      <Footer />
     </div>
   );
 }

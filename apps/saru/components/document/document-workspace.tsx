@@ -197,6 +197,7 @@ export function DocumentWorkspace({
       
       if (params.navigateAfterCreate) {
         setIsNavigatingToNewDoc(true);
+        window.dispatchEvent(new CustomEvent('reset-chat-state'));
         router.push(`/documents/${documentId}`);
       }
       

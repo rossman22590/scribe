@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWindowSize } from 'usehooks-ts';
-import Image from 'next/image';
 import useSWR from 'swr';
 
 import { ModelSelector } from '@/components/chat/model-selector';
@@ -180,28 +179,6 @@ function PureChatHeader({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* GitHub Link */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="size-8 shrink-0"
-        asChild
-      >
-        <Link
-          href="https://github.com/will-lp1/saru"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            src="/images/github-logo.png"
-            alt="Github"
-            width={16}
-            height={16}
-            className="dark:invert"
-          />
-        </Link>
-      </Button>
     </header>
   );
 }

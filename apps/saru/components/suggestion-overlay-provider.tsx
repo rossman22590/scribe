@@ -4,6 +4,7 @@ import { createContext, useContext, ReactNode, useState, useCallback, useEffect 
 import SuggestionOverlay from './suggestion-overlay';
 import { useDocument } from '@/hooks/use-document';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import { getActiveEditorView } from '@/lib/editor/editor-state';
 import {
   ACTIVATE_SUGGESTION_CONTEXT,  
@@ -24,11 +25,19 @@ interface SuggestionOverlayContextType {
 
 const SuggestionOverlayContext = createContext<SuggestionOverlayContextType | null>(null);
 
+type SelectionAction = {
+  from: number;
+  to: number;
+  selectedText: string;
+  position: { x: number; y: number };
+};
+
 export function SuggestionOverlayProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null);
+  const [selectionAction, setSelectionAction] = useState<SelectionAction | null>(null);
   const { document } = useDocument();
   const documentId = document.documentId;
 
@@ -102,6 +111,67 @@ export function SuggestionOverlayProvider({ children }: { children: ReactNode })
       view.dispatch(tr);
     }
   }, []); // No dependencies, relies on getActiveEditorView at call time
+
+  useEffect(() => {
+    let updateTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const hideSelectionAction = () => setSelectionAction(null);
+
+    const updateSelectionAction = () => {
+      if (updateTimer) clearTimeout(updateTimer);
+
+      updateTimer = setTimeout(() => {
+        if (isOpen || !documentId || documentId === 'init') {
+          hideSelectionAction();
+          return;
+        }
+
+        const view = getActiveEditorView();
+        if (!view || !view.dom.contains(window.document.activeElement)) {
+          hideSelectionAction();
+          return;
+        }
+
+        const { from, to, empty } = view.state.selection;
+        if (empty || from === to) {
+          hideSelectionAction();
+          return;
+        }
+
+        const text = view.state.doc.textBetween(from, to, ' \n\n ');
+        if (!text.trim()) {
+          hideSelectionAction();
+          return;
+        }
+
+        const coords = view.coordsAtPos(to);
+        setSelectionAction({
+          from,
+          to,
+          selectedText: text,
+          position: {
+            x: Math.min(window.innerWidth - 44, Math.max(8, coords.right + 8)),
+            y: Math.min(window.innerHeight - 44, Math.max(8, coords.bottom - 8)),
+          },
+        });
+      }, 40);
+    };
+
+    window.document.addEventListener('selectionchange', updateSelectionAction);
+    window.addEventListener('mouseup', updateSelectionAction);
+    window.addEventListener('keyup', updateSelectionAction);
+    window.addEventListener('resize', hideSelectionAction);
+    window.addEventListener('scroll', hideSelectionAction, true);
+
+    return () => {
+      if (updateTimer) clearTimeout(updateTimer);
+      window.document.removeEventListener('selectionchange', updateSelectionAction);
+      window.removeEventListener('mouseup', updateSelectionAction);
+      window.removeEventListener('keyup', updateSelectionAction);
+      window.removeEventListener('resize', hideSelectionAction);
+      window.removeEventListener('scroll', hideSelectionAction, true);
+    };
+  }, [documentId, isOpen]);
 
   const handleAcceptSuggestion = useCallback((suggestion: string) => {
     if (!documentId || documentId === 'init') {
@@ -211,6 +281,34 @@ export function SuggestionOverlayProvider({ children }: { children: ReactNode })
       }}
     >
       {children}
+      {selectionAction && !isOpen && (
+        <button
+          type="button"
+          aria-label="Edit selected text"
+          title="Edit selected text"
+          className="fixed z-50 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-lg transition-colors hover:bg-accent hover:text-accent-foreground"
+          style={{
+            left: selectionAction.position.x,
+            top: selectionAction.position.y,
+          }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            event.preventDefault();
+            openSuggestionOverlay({
+              position: {
+                x: Math.max(10, Math.min(window.innerWidth - 410, selectionAction.position.x)),
+                y: Math.max(10, Math.min(window.innerHeight - 460, selectionAction.position.y + 12)),
+              },
+              selectedText: selectionAction.selectedText,
+              from: selectionAction.from,
+              to: selectionAction.to,
+            });
+            setSelectionAction(null);
+          }}
+        >
+          <Sparkles size={15} strokeWidth={2.25} />
+        </button>
+      )}
       {documentId && documentId !== 'init' && (
         <SuggestionOverlay
           documentId={documentId}

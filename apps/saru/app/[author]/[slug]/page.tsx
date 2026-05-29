@@ -36,7 +36,7 @@ export default async function Page({ params }: any) {
       <ThemeToggle />
       <Link href="/register">
         <Button variant="outline" className="fixed top-4 right-4 z-50">
-          Sign up to Saru
+          Sign up to Scribe
         </Button>
       </Link>
       <Blog

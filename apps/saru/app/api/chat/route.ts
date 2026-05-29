@@ -39,12 +39,55 @@ import type { ActiveDocumentId, ChatContextPayload, ChatAiOptions } from '@/type
 
 export const maxDuration = 60;
 
-const groqToolCallOptions = {
-  groq: {
-    parallelToolCalls: false,
-    structuredOutputs: false,
-  },
-};
+function getMessageText(message: UIMessage): string {
+  return (message.parts ?? [])
+    .filter(
+      (part): part is { type: 'text'; text: string } =>
+        typeof part === 'object' &&
+        part !== null &&
+        part.type === 'text' &&
+        'text' in part &&
+        typeof part.text === 'string'
+    )
+    .map((part) => part.text)
+    .join(' ')
+    .trim();
+}
+
+function shouldForceStreamingDocument({
+  userText,
+  activeTools,
+}: {
+  userText: string;
+  activeTools: Array<'streamingDocument' | 'updateDocument' | 'webSearch'>;
+}) {
+  if (!activeTools.includes('streamingDocument')) {
+    return false;
+  }
+
+  return /\b(create|write|draft|compose|generate|make)\b[\s\S]{0,80}\b(poem|story|essay|article|post|blog|letter|email|outline|document|draft|script|paragraph|section|copy)\b/i.test(
+    userText
+  );
+}
+
+function getCreatedDocumentIdFromMessages(messages: UIMessage[]) {
+  for (const message of messages) {
+    for (const part of message.parts ?? []) {
+      if (
+        part.type === 'tool-streamingDocument' &&
+        'output' in part &&
+        part.output &&
+        typeof part.output === 'object' &&
+        'documentId' in part.output &&
+        typeof part.output.documentId === 'string'
+      ) {
+        return part.output.documentId;
+      }
+    }
+  }
+
+  return undefined;
+}
 
 async function createEnhancedSystemPrompt({
   selectedChatModel,
@@ -313,7 +356,7 @@ export async function POST(request: Request) {
     const isActiveDocumentEmpty = activeDocumentContent.trim().length === 0;
 
     if (validatedActiveDocumentId === undefined) {
-      availableTools.streamingDocument = streamingDocument({ session: toolSession });
+      availableTools.streamingDocument = streamingDocument({ session: toolSession, chatId });
       activeToolsList.push('streamingDocument');
     } else {
       availableTools.updateDocument = updateDocument({
@@ -326,6 +369,7 @@ export async function POST(request: Request) {
         availableTools.streamingDocument = streamingDocument({
           session: toolSession,
           documentId: validatedActiveDocumentId,
+          chatId,
         });
         activeToolsList.push('streamingDocument');
       }
@@ -346,6 +390,11 @@ export async function POST(request: Request) {
       userId,
       availableTools: activeToolsList,
     });
+    const userText = getMessageText(userMessage);
+    const forceStreamingDocument = shouldForceStreamingDocument({
+      userText,
+      activeTools: activeToolsList,
+    });
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }: { writer: UIMessageStreamWriter }) => {
@@ -355,6 +404,7 @@ export async function POST(request: Request) {
             session: toolSession,
             dataStream,
             documentId: validatedActiveDocumentId,
+            chatId,
           });
         }
 
@@ -362,9 +412,19 @@ export async function POST(request: Request) {
           model: myProvider.languageModel(selectedChatModel),
           system: dynamicSystemPrompt,
           messages: convertToModelMessages(messages),
-          stopWhen: stepCountIs(2),
+          stopWhen: forceStreamingDocument ? stepCountIs(1) : stepCountIs(2),
           activeTools: activeToolsList,
-          providerOptions: groqToolCallOptions,
+          prepareStep: forceStreamingDocument
+            ? ({ stepNumber }) =>
+                stepNumber === 0
+                  ? {
+                      toolChoice: {
+                        type: 'tool' as const,
+                        toolName: 'streamingDocument' as const,
+                      },
+                    }
+                  : { toolChoice: 'none' as const }
+            : undefined,
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: toolsWithStream,
         });
@@ -378,6 +438,9 @@ export async function POST(request: Request) {
           try {
             const existingMessages = await getMessagesByChatId({ id: chatId });
             const existingIds = new Set(existingMessages.map((m) => m.id));
+            const createdDocumentId = getCreatedDocumentIdFromMessages(allMessages);
+            const contextActiveDocumentId =
+              createdDocumentId || validatedActiveDocumentId;
 
             const generated = allMessages
               .filter(
@@ -396,7 +459,7 @@ export async function POST(request: Request) {
               chatId,
               userId,
               context: {
-                active: validatedActiveDocumentId,
+                active: contextActiveDocumentId,
                 mentioned: mentionedDocumentIds,
               },
             });

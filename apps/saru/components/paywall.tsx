@@ -163,7 +163,7 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
           <div className="relative h-40 md:h-full overflow-hidden">
             <Image
               src="/images/sarus.png"
-              alt="Saru"
+              alt="Scribe"
               fill
               style={{ objectFit: 'cover' }}
               className="filter grayscale contrast-110 brightness-90"
@@ -172,7 +172,7 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent md:bg-gradient-to-r md:from-black/40 md:via-transparent"></div>
             <div className="absolute top-6 left-6 z-10">
                <h1 className="text-base font-normal text-white/80">
-                  Saru
+                  Scribe
                </h1>
              </div>
           </div>
@@ -205,7 +205,7 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
               <DialogHeader className="mb-6 text-left">
                 <DialogTitle className="text-xl md:text-2xl font-semibold">Upgrade to Pro</DialogTitle>
                 <DialogDescription className="text-sm mb-6">
-                  Subscribe to support Saru, unlock AI trained on the way you write, and {' '}
+                  Subscribe to support Scribe, unlock AI trained on the way you write, and {' '}
                   <Link href="#" className="text-blue-500 underline">
                     publish your documents
                   </Link>.
@@ -265,7 +265,7 @@ export function Paywall({ isOpen, onOpenChange, required = false }: PaywallProps
 
             <DialogFooter className="mt-6 pt-4 border-t flex flex-col sm:flex-row items-center gap-2 sm:gap-0">
               <p className="text-xs text-muted-foreground flex-shrink-0">
-                  much love, will - founder of Saru
+                  much love, will - founder of Scribe
               </p>
               <div className="flex-grow" />
               <Button

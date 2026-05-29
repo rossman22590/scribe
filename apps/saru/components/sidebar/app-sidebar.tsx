@@ -36,7 +36,7 @@ export function AppSidebar({ user, initialDocuments }: { user: User | undefined;
               className="flex items-center gap-2"
             >
               <span className={`text-2xl ${crimson.className} hover:bg-accent rounded-md px-2 py-1 transition-colors`}>
-                <span className="hidden md:inline">Saru</span>
+                <span className="hidden md:inline">Scribe</span>
                 <span className="inline md:hidden">SL</span>
               </span>
             </Link>

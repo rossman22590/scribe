@@ -149,7 +149,7 @@ export const auth = betterAuth({
           const { data, error } = await resend.emails.send({
             from: process.env.EMAIL_FROM!,
             to: [user.email],
-            subject: 'Verify your email for Saru',
+            subject: 'Verify your email for Scribe',
             html: `<p>Welcome! Please click the link below to verify your email address:</p><p><a href="${url}">Verify Email</a></p><p>If the link doesn't work, copy and paste this URL into your browser: ${url}</p>`,
           });
 

@@ -2,14 +2,17 @@ import { UIMessageStreamWriter, tool, streamText } from 'ai';
 import { z } from 'zod/v3';
 import { Session } from '@/lib/auth';
 import { myProvider } from '@/lib/ai/providers';
+import { saveDocument } from '@/lib/db/queries';
+import { generateUUID } from '@/lib/utils';
 
 interface StreamingDocumentProps {
   session: Session;
   dataStream?: UIMessageStreamWriter;
   documentId?: string;
+  chatId?: string;
 }
 
-export const streamingDocument = ({ session, dataStream, documentId }: StreamingDocumentProps) =>
+export const streamingDocument = ({ session, dataStream, documentId, chatId }: StreamingDocumentProps) =>
   tool({
     description: 'Generates content based on a title or prompt for the active document.',
     inputSchema: z.object({
@@ -34,6 +37,7 @@ export const streamingDocument = ({ session, dataStream, documentId }: Streaming
     execute: async ({ title, context, sources }) => {
       try {
         const targetDocumentId = documentId;
+        const shouldStreamToEditor = typeof targetDocumentId === 'string' && targetDocumentId.length > 0;
         const contextBlock =
           typeof context === 'string' && context.trim().length > 0
             ? `\n\nCONTEXT (from chat/web search):\n${context.trim()}\n`
@@ -66,21 +70,54 @@ export const streamingDocument = ({ session, dataStream, documentId }: Streaming
           if (delta.type === 'text-delta') {
             const textDelta = (delta).text as string;
             generatedContent += textDelta;
-            dataStream?.write({
-              type: 'data-editor-stream-text',
-              data: {
-                kind: 'editor-stream-text',
-                content: textDelta,
-                documentId: targetDocumentId,
-              },
-            });
+            if (shouldStreamToEditor) {
+              dataStream?.write({
+                type: 'data-editor-stream-text',
+                data: {
+                  kind: 'editor-stream-text',
+                  content: textDelta,
+                  documentId: targetDocumentId,
+                },
+              });
+            }
           }
         }
 
-        dataStream?.write({
-          type: 'data-editor-stream-finish',
-          data: { kind: 'editor-stream-finish', documentId: targetDocumentId },
-        });
+        if (shouldStreamToEditor) {
+          dataStream?.write({
+            type: 'data-editor-stream-finish',
+            data: { kind: 'editor-stream-finish', documentId: targetDocumentId },
+          });
+        }
+
+        if (!shouldStreamToEditor) {
+          const createdDocumentId = generateUUID();
+          const createdDocument = await saveDocument({
+            id: createdDocumentId,
+            title: title.trim() || 'Untitled Document',
+            content: generatedContent,
+            kind: 'text',
+            userId: session.user.id,
+            chatId,
+          });
+
+          dataStream?.write({
+            type: 'data-document-created',
+            data: {
+              kind: 'document-created',
+              document: createdDocument,
+              documentId: createdDocumentId,
+            },
+          });
+
+          return {
+            title,
+            content: generatedContent,
+            documentId: createdDocumentId,
+            action: 'document-created',
+            message: 'Document created.',
+          };
+        }
 
         return {
           title,

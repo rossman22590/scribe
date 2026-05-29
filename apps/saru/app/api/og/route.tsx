@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
               color: '#1f2937',
             }}
           >
-            Saru
+            Scribe
           </div>
           <div
             style={{
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
             color: '#1f2937',
           }}
         >
-          Saru
+          Scribe
         </div>
         <div
           style={{

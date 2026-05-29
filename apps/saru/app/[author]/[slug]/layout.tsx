@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: any) {
     .limit(1);
   const doc = result[0];
   if (!doc) {
-    return { title: 'Saru' };
+    return { title: 'Scribe' };
   }
   const dateString = new Date(doc.createdAt).toLocaleDateString('en-US');
   const title = doc.title;
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: any) {
       url: `${baseUrl}/${author}/${slug}`,
       title,
       description,
-      siteName: 'saru',
+      siteName: 'Scribe',
       images: [
         { url: ogUrl, width: 1200, height: 630, alt: title },
       ],

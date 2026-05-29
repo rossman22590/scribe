@@ -11,16 +11,16 @@ export const chatModels: Array<ChatModel> = [
   {
     id: 'chat-model-small',
     name: 'Small Model',
-    description: 'Fast and efficient for everyday tasks',
+    description: 'Claude 3.5 Haiku for fast everyday writing tasks',
   },
   {
     id: 'chat-model-large',
     name: 'Large Model',
-    description: 'Powerful model for complex tasks',
+    description: 'Claude Sonnet 4.6 for complex drafts and edits',
   },
   {
     id: 'chat-model-reasoning',
     name: 'Reasoning Model',
-    description: 'Advanced step-by-step reasoning',
+    description: 'GPT-5.5 for advanced step-by-step reasoning',
   },
 ];

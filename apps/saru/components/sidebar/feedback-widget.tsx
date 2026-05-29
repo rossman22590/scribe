@@ -126,7 +126,7 @@ export function FeedbackWidget({ className }: { className?: string }) {
                       Thank you for your feedback!
                     </p>
                     <p className="text-muted-foreground text-center text-sm max-w-[250px]">
-                      Your input helps make Saru better for everyone.
+                      Your input helps make Scribe better for everyone.
                     </p>
                   </motion.div>
                 ) : (
@@ -141,7 +141,7 @@ export function FeedbackWidget({ className }: { className?: string }) {
                   >
                     <div className="p-3 border-b border-border/50">
                       <h3 className="text-sm font-medium text-foreground">Share your thoughts</h3>
-                      <p className="text-xs text-muted-foreground mt-1">Help us improve Saru</p>
+                      <p className="text-xs text-muted-foreground mt-1">Help us improve Scribe</p>
                     </div>
                     
                     <div className="relative flex-1">

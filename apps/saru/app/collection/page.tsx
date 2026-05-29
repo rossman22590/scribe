@@ -131,7 +131,7 @@ export default function CollectionPage() {
       <header className="w-full py-4 border-b border-border">
         <div className="container mx-auto flex justify-between items-center px-6 md:px-8 lg:px-12">
           <Link href="/" className="text-xl font-normal tracking-tighter text-foreground/90 hover:text-foreground transition-colors">
-            Saru
+            Scribe
           </Link>
         </div>
       </header>
@@ -203,7 +203,7 @@ export default function CollectionPage() {
       {/* Footer */}
       <footer className="w-full border-t border-border bg-background/80 backdrop-blur-sm py-4 mt-8">
         <div className="container mx-auto px-6 md:px-8 lg:px-12 flex items-center justify-between text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} Saru. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Scribe. All rights reserved.</span>
         </div>
       </footer>
     </div>

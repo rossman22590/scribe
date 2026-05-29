@@ -14,7 +14,10 @@ if (stripeEnabled) {
 }
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://trysaru.com",
+  baseURL:
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000",
   plugins,
 });
 

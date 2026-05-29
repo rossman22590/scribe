@@ -97,6 +97,18 @@ function MessageContent({ content, isUserMessage }: { content: string; isUserMes
   return <>{parts}</>;
 }
 
+function sanitizeAssistantText(content: string) {
+  if (
+    /(?:an:tml|antml|tml:invoke|function_calls|streamtool|streamingDocument)/i.test(
+      content
+    )
+  ) {
+    return '';
+  }
+
+  return content;
+}
+
 const PurePreviewMessage = ({
   chatId,
   message,
@@ -130,6 +142,18 @@ const PurePreviewMessage = ({
 
   const toolParts =
     message.parts?.filter((part) => part.type?.startsWith("tool-")) || [];
+  const hasDocumentToolPart = toolParts.some(
+    (part) =>
+      part.type === "tool-streamingDocument" ||
+      part.type === "tool-updateDocument" ||
+      part.type === "tool-createDocument"
+  );
+  const displayTextContent =
+    message.role === "assistant"
+      ? hasDocumentToolPart
+        ? ""
+        : sanitizeAssistantText(textContent)
+      : textContent;
 
   return (
     <AnimatePresence>
@@ -154,7 +178,7 @@ const PurePreviewMessage = ({
             <div className="size-8 flex items-center justify-center rounded-full ring-1 shrink-0 ring-border bg-background overflow-hidden relative">
               <Image
                 src="/images/leopardprintbw.svg"
-                alt="Saru"
+                alt="Scribe"
                 fill
                 className="object-cover dark:invert"
                 style={{ transform: "scale(2.5)" }}
@@ -170,7 +194,7 @@ const PurePreviewMessage = ({
               />
             )}
 
-            {(textContent || reasoningText) && (
+            {(displayTextContent || reasoningText) && (
               <>
                 {mode === "view" && (
                   <div
@@ -183,8 +207,8 @@ const PurePreviewMessage = ({
                           message.role === "user",
                       })}
                     >
-                      {typeof textContent === "string" ? (
-                        <MessageContent content={textContent} isUserMessage={message.role === 'user'} />
+                      {typeof displayTextContent === "string" ? (
+                        <MessageContent content={displayTextContent} isUserMessage={message.role === 'user'} />
                       ) : (
                         <pre className="text-sm text-red-500">
                           Error: Invalid message content format
@@ -333,7 +357,7 @@ export const ThinkingMessage = () => {
         <div className="size-8 flex items-center justify-center rounded-full ring-1 shrink-0 ring-border overflow-hidden relative">
           <Image
             src="/images/leopardprintbw.svg"
-            alt="Saru"
+            alt="Scribe"
             fill
             className="object-cover dark:invert"
             style={{ transform: "scale(2.5)" }}

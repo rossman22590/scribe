@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -27,23 +26,11 @@ export const Overview = () => {
     >
       <div className="flex flex-col items-center gap-6 text-center">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-medium">Welcome to Saru</h2>
+          <h2 className="text-xl font-medium">Welcome to Scribe</h2>
         </div>
 
         <div className="flex items-center gap-3">
           <ToolboxDialog />
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            asChild
-          >
-            <Link href="https://discord.gg/X49bQmnYbd" target="_blank" rel="noopener noreferrer">
-              <Image src="/images/discord-logo.png" alt="Discord" width={14} height={14} className="mr-1.5" />
-              Discord
-            </Link>
-          </Button>
         </div>
       </div>
     </motion.div>
@@ -115,7 +102,7 @@ function ToolboxDialog() {
                   <span className="text-red-500 line-through dark:text-red-400/70">
                     is a bit weak and verbose.
                   </span>
-                  <span className="text-green-600 dark:text-green-400/70 ml-1 demo-diff-new-text-animated">
+                  <span className="text-fuchsia-600 dark:text-fuchsia-400/80 ml-1 demo-diff-new-text-animated">
                     lacks punch and impact.
                   </span>
                 </div>
@@ -182,7 +169,7 @@ function ToolboxDialog() {
                       <span className="flex-grow">Searching the web...</span>
                       <span className="demo-tool-status demo-tool-status-1">
                         <Loader2 size={14} className="demo-spinner" />
-                        <CheckIcon size={14} className="demo-check text-green-600" />
+                        <CheckIcon size={14} className="demo-check text-fuchsia-600 dark:text-fuchsia-400" />
                       </span>
                     </div>
                   </div>
@@ -196,7 +183,7 @@ function ToolboxDialog() {
                       <span className="flex-grow">Updating document...</span>
                       <span className="demo-tool-status demo-tool-status-2">
                         <Loader2 size={14} className="demo-spinner" />
-                        <CheckIcon size={14} className="demo-check text-green-600" />
+                        <CheckIcon size={14} className="demo-check text-fuchsia-600 dark:text-fuchsia-400" />
                       </span>
                     </div>
                   </div>

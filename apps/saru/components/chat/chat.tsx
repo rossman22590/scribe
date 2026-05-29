@@ -4,6 +4,7 @@ import type { UIMessage } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ChatHeader } from '@/components/chat/chat-header';
@@ -68,7 +69,8 @@ export function Chat({
   selectedChatModel: initialSelectedChatModel,
   isReadonly = false,
 }: ChatProps) {
-  const { document } = useDocument();
+  const router = useRouter();
+  const { document, setDocument } = useDocument();
   const [documentContextActive, setDocumentContextActive] = useState(false);
   const { writingStyleSummary, applyStyle } = useAiOptionsValue();
   const [chatId, setChatId] = useState(() => initialId || generateUUID());
@@ -137,6 +139,23 @@ export function Chat({
           detail: { documentId: payloadDocumentId },
         });
         window.dispatchEvent(finishEvent);
+      }
+
+      if (data?.kind === 'document-created' && data.document?.id) {
+        const createdDocument = data.document;
+
+        setDocument({
+          documentId: createdDocument.id,
+          title: createdDocument.title || 'Untitled Document',
+          content: createdDocument.content || '',
+          status: 'idle',
+        });
+
+        window.dispatchEvent(new CustomEvent('document-created', {
+          detail: { document: createdDocument },
+        }));
+
+        router.push(`/documents/${createdDocument.id}`);
       }
     } catch (error) {
       console.error('Error processing chat data payload:', error);
@@ -249,6 +268,9 @@ export function Chat({
       const newChatId = generateUUID();
       setMessages([]);
       setInput('');
+      setConfirmedMentions([]);
+      setRequestedChatLoadId(null);
+      setIsLoadingChat(false);
       setChatId(newChatId);
     };
 

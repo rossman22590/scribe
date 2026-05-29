@@ -320,7 +320,7 @@ export default function AIChatWidget({ context, title, author, date }: AIChatWid
                             <div className="size-8 flex items-center justify-center rounded-full ring-1 shrink-0 ring-border bg-background overflow-hidden relative">
                               <img
                                 src="/images/leopardprintbw.svg"
-                                alt="Saru"
+                                alt="Scribe"
                                 className="object-cover dark:invert"
                               />
                             </div>

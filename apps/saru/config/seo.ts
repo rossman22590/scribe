@@ -1,28 +1,28 @@
 import type { Metadata } from "next";
 
-const TITLE = "Saru";
+const TITLE = "Scribe";
 const DESCRIPTION =
-  "Saru is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
+  "Scribe is an open-source productivity tool for writing, note-taking, and organizing ideas with AI assistance. Fast, customizable, and user-friendly.";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://trysaru.com/";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export const seoConfig: Metadata = {
   title: {
     default: TITLE,
-    template: "%s | Saru",
+    template: "%s | Scribe",
   },
   description: DESCRIPTION,
-  applicationName: "Saru",
+  applicationName: "Scribe",
   category: "Productivity",
   keywords: [
     // Branding
-    "Saru",
-    "Saru",
-    "Saru",
-    "Saru Writing",
-    "Saru app",
-    "Saru AI",
-    "Saru open source",
+    "Scribe",
+    "Scribe",
+    "Scribe",
+    "Scribe Writing",
+    "Scribe app",
+    "Scribe AI",
+    "Scribe open source",
 
     // Core Product
     "AI writing tool",
@@ -109,7 +109,7 @@ export const seoConfig: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: BASE_URL,
-    siteName: "Saru",
+    siteName: "Scribe",
     locale: "en_US",
     type: "website",
     images: [
@@ -117,7 +117,7 @@ export const seoConfig: Metadata = {
         url: '/api/og',
         width: 1200,
         height: 630,
-        alt: "Saru – Open Source Writing Tool",
+        alt: "Scribe – Open Source Writing Tool",
       },
     ],
   },
@@ -125,12 +125,12 @@ export const seoConfig: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    site: "@WriteWithSaru",
-    creator: "@WriteWithSaru",
+    site: "@WriteWithScribe",
+    creator: "@WriteWithScribe",
     images: [
         {
           url: '/api/og',
-          alt: 'Saru - Tab, Tab, Apply Brilliance',
+          alt: 'Scribe - Tab, Tab, Apply Brilliance',
         },
       ],
   },

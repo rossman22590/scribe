@@ -23,29 +23,29 @@ From the project root:
    pnpm install
    ```
 
-2. Copy env files:
+2. Copy the app env file:
    ```bash
-   cp packages/db/.env.example packages/db/.env
    cp apps/saru/.env.example apps/saru/.env
    ```
-   - Set **DATABASE_URL** in both.
-   - In `apps/saru/.env`, add:
+   - Set **DATABASE_URL** in `apps/saru/.env` to your Postgres connection string, such as Neon.
+   - Add:
      ```dotenv
      BETTER_AUTH_SECRET=""        # e.g., openssl rand -hex 32
      BETTER_AUTH_URL="http://localhost:3000"
      NEXT_PUBLIC_BETTER_AUTH_URL="http://localhost:3000"
      DISCORD_WEBHOOK_URL=""
-     # AI Keys: GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
+     OPENROUTER_API_KEY=""        # https://openrouter.ai/settings/keys
+     TAVILY_API_KEY=""            # optional, enables web search
      ```
 
-3. Start the database:
+3. Start a local database, if you are not using a hosted database:
    ```bash
    docker compose up -d
    ```
 
-4. Apply schema:
+4. Apply schema migrations:
    ```bash
-   pnpm db:push
+   pnpm db:migrate
    ```
 
 5. Run the app:

@@ -526,6 +526,11 @@ function PureEditor({
         }
 
         /* Persistent highlight while overlay is open */
+        .synonym-word:hover {
+          text-decoration: underline dotted hsl(var(--muted-foreground));
+          text-underline-offset: 3px;
+        }
+
         .synonym-loading {
           background-color: rgba(0, 0, 0, 0.07);
         }

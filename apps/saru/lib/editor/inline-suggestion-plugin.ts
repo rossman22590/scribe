@@ -21,6 +21,9 @@ export const SET_SUGGESTION = 'setSuggestion';
 export const CLEAR_SUGGESTION = 'clearSuggestion';
 export const FINISH_SUGGESTION_LOADING = 'finishSuggestionLoading';
 
+const AUTO_SUGGESTION_DELAY_MS = 900;
+const MIN_AUTO_SUGGESTION_CHARS = 8;
+
 export function createInlineSuggestionCallback(documentId: string) {
   return async (state: EditorState, abortControllerRef: React.MutableRefObject<AbortController | null>, editorRef: React.MutableRefObject<EditorView | null>) => {
     const editor = editorRef.current;
@@ -87,37 +90,60 @@ export function createInlineSuggestionCallback(documentId: string) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedSuggestion = "";
+      let buffer = "";
+      let finished = false;
+
+      const processEvent = (rawEvent: string) => {
+        const line = rawEvent.trim();
+        if (!line.startsWith("data: ")) return;
+
+        let data: { type?: string; content?: string };
+        try {
+          data = JSON.parse(line.slice(5));
+        } catch (err) {
+          console.warn("Error parsing SSE line:", line, err);
+          return;
+        }
+
+        if (data.type === "suggestion-delta") {
+          accumulatedSuggestion += data.content ?? "";
+          if (editorRef.current) {
+            editorRef.current.dispatch(
+              editorRef.current.state.tr.setMeta(SET_SUGGESTION, {
+                text: accumulatedSuggestion,
+              })
+            );
+          }
+          return;
+        }
+
+        if (data.type === "error") {
+          throw new Error(data.content || "Inline suggestion failed.");
+        }
+
+        if (data.type === "finish") {
+          finished = true;
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done || controller.signal.aborted) break;
+        if (done || controller.signal.aborted || finished) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n\n");
+        buffer += decoder.decode(value, { stream: true });
+        let boundary = buffer.indexOf("\n\n");
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(5));
-              if (data.type === "suggestion-delta") {
-                accumulatedSuggestion += data.content;
-                if (editorRef.current) {
-                  editorRef.current.dispatch(
-                    editorRef.current.state.tr.setMeta(SET_SUGGESTION, {
-                      text: accumulatedSuggestion,
-                    })
-                  );
-                }
-              } else if (data.type === "error") {
-                throw new Error(data.content);
-              } else if (data.type === "finish") {
-                break;
-              }
-            } catch (err) {
-              console.warn("Error parsing SSE line:", line, err);
-            }
-          }
+        while (boundary !== -1) {
+          const rawEvent = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          processEvent(rawEvent);
+          if (finished) break;
+          boundary = buffer.indexOf("\n\n");
         }
+      }
+
+      if (!finished && buffer.trim()) {
+        processEvent(buffer);
       }
       
       if (!controller.signal.aborted && editorRef.current) {
@@ -149,6 +175,55 @@ export function createInlineSuggestionCallback(documentId: string) {
 }
 
 export function inlineSuggestionPlugin(options: { requestSuggestion?: (state: EditorState) => void }): Plugin<InlineSuggestionState> {
+  let autoRequestTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastAutoRequestKey = "";
+  let skipNextAutoRequest = false;
+
+  const clearAutoRequestTimeout = () => {
+    if (autoRequestTimeout) {
+      clearTimeout(autoRequestTimeout);
+      autoRequestTimeout = null;
+    }
+  };
+
+  const shouldAutoRequestSuggestion = (state: EditorState): boolean => {
+    const { selection, doc } = state;
+    if (!selection.empty) return false;
+
+    const head = selection.head;
+    const textBefore = doc.textBetween(0, head, "\n", "\n");
+    if (textBefore.trim().length < MIN_AUTO_SUGGESTION_CHARS) return false;
+
+    const prevChar = doc.textBetween(Math.max(0, head - 1), head);
+    if (!prevChar) return false;
+
+    const nextChar = doc.textBetween(head, Math.min(doc.content.size, head + 1));
+    if (nextChar && !/\s|[.,!?;:)]/.test(nextChar)) return false;
+
+    return true;
+  };
+
+  const scheduleAutoRequest = (view: EditorView) => {
+    if (!options.requestSuggestion || !shouldAutoRequestSuggestion(view.state)) {
+      clearAutoRequestTimeout();
+      return;
+    }
+
+    const { selection, doc } = view.state;
+    const head = selection.head;
+    const requestKey = `${head}:${doc.textContent.length}:${doc.textBetween(Math.max(0, head - 80), head, "\n", "\n")}`;
+    if (requestKey === lastAutoRequestKey) return;
+
+    clearAutoRequestTimeout();
+    autoRequestTimeout = setTimeout(() => {
+      if (!shouldAutoRequestSuggestion(view.state)) return;
+
+      lastAutoRequestKey = requestKey;
+      view.dispatch(view.state.tr.setMeta(START_SUGGESTION_LOADING, true));
+      options.requestSuggestion?.(view.state);
+    }, AUTO_SUGGESTION_DELAY_MS);
+  };
+
   return new Plugin<InlineSuggestionState>({
     key: inlineSuggestionPluginKey,
     state: {
@@ -187,6 +262,9 @@ export function inlineSuggestionPlugin(options: { requestSuggestion?: (state: Ed
 
         if (pluginState.suggestionPos !== null && (pluginState.isLoading || pluginState.suggestionText)) {
           if (tr.docChanged || !newState.selection.empty || newState.selection.head !== pluginState.suggestionPos) {
+            if (tr.docChanged && tr.getMeta(CLEAR_SUGGESTION)) {
+              skipNextAutoRequest = true;
+            }
             return initialState;
           }
         }
@@ -257,6 +335,7 @@ export function inlineSuggestionPlugin(options: { requestSuggestion?: (state: Ed
         if (!pluginState) return false;
 
         if (event.key === 'Tab' && !event.shiftKey) {
+          clearAutoRequestTimeout();
           if (pluginState.suggestionText && pluginState.suggestionPos !== null) {
             event.preventDefault();
             const raw = pluginState.suggestionText!;
@@ -271,6 +350,7 @@ export function inlineSuggestionPlugin(options: { requestSuggestion?: (state: Ed
             let tr = view.state.tr.insertText(text, pluginState.suggestionPos!);
             tr = tr.setMeta(CLEAR_SUGGESTION, true);
             tr = tr.scrollIntoView();
+            skipNextAutoRequest = true;
             view.dispatch(tr);
             return true;
           }
@@ -288,6 +368,28 @@ export function inlineSuggestionPlugin(options: { requestSuggestion?: (state: Ed
 
         return false;
       },
+    },
+    view() {
+      return {
+        update(view: EditorView, prevState: EditorState) {
+          if (skipNextAutoRequest) {
+            skipNextAutoRequest = false;
+            clearAutoRequestTimeout();
+            return;
+          }
+
+          const docChanged = !prevState.doc.eq(view.state.doc);
+          if (!docChanged) return;
+
+          const pluginState = inlineSuggestionPluginKey.getState(view.state);
+          if (pluginState?.isLoading || pluginState?.suggestionText) return;
+
+          scheduleAutoRequest(view);
+        },
+        destroy() {
+          clearAutoRequestTimeout();
+        },
+      };
     },
   });
 } 
