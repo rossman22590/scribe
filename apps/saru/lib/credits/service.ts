@@ -164,11 +164,11 @@ export const deductCredits = async ({
   reason: string;
   metadata?: Record<string, unknown>;
 }): Promise<DeductCreditsResult> => {
-  await ensureUserCredits(userId);
-
   if (!Number.isInteger(cost) || cost <= 0) {
     throw new Error('Credit cost must be a positive whole number');
   }
+
+  await ensureUserCredits(userId);
 
   return db.transaction(async (tx) => {
     const [updated] = await tx

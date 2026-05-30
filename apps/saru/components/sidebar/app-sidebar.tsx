@@ -14,7 +14,6 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
-import { FeedbackWidget } from '@/components/sidebar/feedback-widget';
 import type { User } from '@/lib/auth';
 import { Crimson_Text } from 'next/font/google'
 import { ShieldCheck } from 'lucide-react';
@@ -77,12 +76,7 @@ export function AppSidebar({
 
       <SidebarFooter>
         <div className="px-2 pb-2 flex flex-col space-y-2">
-          {user && (
-            <>
-              <FeedbackWidget/>
-              <SidebarUserNav user={user} />
-            </>
-          )}
+          {user && <SidebarUserNav user={user} />}
         </div>
       </SidebarFooter>
     </Sidebar>
