@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
+import useSWR from 'swr';
 import {
   Coins,
   CreditCard,
+  History,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -27,6 +30,15 @@ import {
   updateUserVerificationAction,
 } from './actions';
 import { ConfirmSubmitButton } from './confirm-submit-button';
+import {
+  CreditTransactionsList,
+  type CreditTransactionItem,
+} from '@/components/credit-transactions-list';
+import { fetcher } from '@/lib/utils';
+
+type TransactionsResponse = {
+  transactions: CreditTransactionItem[];
+};
 
 type ManagedUser = {
   id: string;
@@ -73,11 +85,18 @@ function shortId(value?: string | null) {
 }
 
 export function UserManagementDialog({ user }: { user: ManagedUser }) {
+  const [open, setOpen] = useState(false);
   const effectivePlan = normalizePlan(user.subscriptionPlan ?? user.creditPlanSnapshot);
   const balance = user.creditBalance ?? 0;
 
+  const { data: transactionsData, isLoading: isTransactionsLoading, error: transactionsError } =
+    useSWR<TransactionsResponse>(
+      open ? `/api/admin/users/${user.id}/credit-transactions` : null,
+      fetcher
+    );
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -271,6 +290,22 @@ export function UserManagementDialog({ user }: { user: ManagedUser }) {
                   Add credits
                 </Button>
               </form>
+            </div>
+
+            <div className="mt-4 rounded-md border">
+              <div className="flex items-center gap-2 border-b px-4 py-3">
+                <History className="size-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Transactions</h4>
+                <span className="text-xs text-muted-foreground">Last 100</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto px-1 py-1">
+                <CreditTransactionsList
+                  transactions={transactionsData?.transactions}
+                  isLoading={isTransactionsLoading}
+                  error={Boolean(transactionsError)}
+                  emptyMessage="No credit transactions for this user."
+                />
+              </div>
             </div>
           </section>
 
