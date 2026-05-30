@@ -32,6 +32,7 @@ import {
   updateUserVerificationAction,
 } from './actions';
 import { ConfirmSubmitButton } from './confirm-submit-button';
+import { UserManagementDialog } from './user-management-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,7 +133,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <div>
               <h1 className="text-3xl font-semibold tracking-normal">System Admin</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Manage users, documents, chats, sessions, subscriptions, and waitlist data.
+                Manage users, credits, plans, documents, chats, sessions, subscriptions, and waitlist data.
               </p>
             </div>
           </div>
@@ -181,19 +182,19 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
             <div>
               <h2 className="text-base font-semibold">Users</h2>
-              <p className="text-xs text-muted-foreground">Roles, verification, activity, and removal.</p>
+              <p className="text-xs text-muted-foreground">Click a user to manage role, plan, credits, verification, and removal.</p>
             </div>
             <Badge variant="outline">{dashboard.users.length} shown</Badge>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1200px] text-sm">
               <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">User</th>
+                  <th className="px-4 py-3 text-left font-medium">Plan & credits</th>
                   <th className="px-4 py-3 text-left font-medium">Role</th>
                   <th className="px-4 py-3 text-left font-medium">Verified</th>
                   <th className="px-4 py-3 text-left font-medium">Usage</th>
-                  <th className="px-4 py-3 text-left font-medium">Subscription</th>
                   <th className="px-4 py-3 text-left font-medium">Created</th>
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
@@ -202,12 +203,25 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 {dashboard.users.map((user) => (
                   <tr key={user.id} className="align-top">
                     <td className="px-4 py-3">
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-muted-foreground">{user.email}</div>
+                      <UserManagementDialog user={user} />
                       <div className="mt-1 font-mono text-xs text-muted-foreground">{shortId(user.id)}</div>
                       {user.username ? (
                         <div className="mt-1 text-xs text-muted-foreground">@{user.username}</div>
                       ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {statusBadge(user.subscriptionStatus)}
+                        <Badge variant="outline">
+                          {user.subscriptionPlan ?? user.creditPlanSnapshot ?? 'free'}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-sm font-medium tabular-nums">
+                        {(user.creditBalance ?? 0).toLocaleString()} credits
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        resets {formatDate(user.creditPeriodEnd)}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="space-y-2">
@@ -248,7 +262,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       <div>{user.chatCount} chats</div>
                       <div>{user.sessionCount} sessions</div>
                     </td>
-                    <td className="px-4 py-3">{statusBadge(user.subscriptionStatus)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(user.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">

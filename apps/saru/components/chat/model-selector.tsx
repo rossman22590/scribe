@@ -15,7 +15,7 @@ import { chatModels } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
 import {
   formatUsageCreditsLabel,
-  MIN_CREDITS_PER_REQUEST,
+  getEffectiveMinCredits,
 } from '@/lib/credits/token-pricing';
 import { canUseModel } from '@/lib/credits/plans';
 
@@ -100,7 +100,7 @@ export function ModelSelector({
           {chatModels.map((chatModel) => {
             const { id, proOnly } = chatModel;
             const isPlanLocked = proOnly === true && !canUseModel(id, plan, true);
-            const isCreditLocked = balance < MIN_CREDITS_PER_REQUEST;
+            const isCreditLocked = balance < getEffectiveMinCredits();
             const isLocked = isPlanLocked || isCreditLocked;
 
             return (

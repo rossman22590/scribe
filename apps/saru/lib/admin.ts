@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { randomUUID } from 'node:crypto';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@saru/db';
@@ -14,6 +15,8 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import { type CreditPlan } from '@/lib/credits/config';
+import { ensureUserCredits, refillCreditsForPlan } from '@/lib/credits/service';
 
 export const ADMIN_ROLE = 'admin';
 export const USER_ROLE = 'user';
@@ -136,12 +139,17 @@ export async function getAdminDashboard({ search = '' }: { search?: string } = {
       chatCount: sql<number>`count(distinct ${schema.Chat.id})::int`,
       sessionCount: sql<number>`count(distinct ${schema.session.id})::int`,
       subscriptionStatus: sql<string | null>`max(${schema.subscription.status})`,
+      subscriptionPlan: sql<string | null>`max(${schema.subscription.plan})`,
+      creditBalance: schema.userCredits.balance,
+      creditPlanSnapshot: schema.userCredits.planSnapshot,
+      creditPeriodEnd: schema.userCredits.periodEnd,
     })
     .from(schema.user)
     .leftJoin(schema.Document, eq(schema.Document.userId, schema.user.id))
     .leftJoin(schema.Chat, eq(schema.Chat.userId, schema.user.id))
     .leftJoin(schema.session, eq(schema.session.userId, schema.user.id))
     .leftJoin(schema.subscription, eq(schema.subscription.referenceId, schema.user.id))
+    .leftJoin(schema.userCredits, eq(schema.userCredits.userId, schema.user.id))
     .$dynamic();
 
   if (userSearch) usersQuery = usersQuery.where(userSearch);
@@ -157,6 +165,9 @@ export async function getAdminDashboard({ search = '' }: { search?: string } = {
       schema.user.createdAt,
       schema.user.updatedAt,
       schema.user.stripeCustomerId,
+      schema.userCredits.balance,
+      schema.userCredits.planSnapshot,
+      schema.userCredits.periodEnd,
     )
     .orderBy(desc(schema.user.createdAt))
     .limit(80);
@@ -304,6 +315,143 @@ export async function setUserEmailVerified({
     .update(schema.user)
     .set({ emailVerified, updatedAt: new Date() })
     .where(eq(schema.user.id, userId));
+}
+
+export async function setUserPlanByAdmin({
+  userId,
+  plan,
+}: {
+  userId: string;
+  plan: CreditPlan;
+}) {
+  await requireAdminUser();
+
+  if (!['free', 'premium', 'ultra'].includes(plan)) {
+    throw new Error('Invalid plan');
+  }
+
+  const now = new Date();
+  const periodEnd = new Date(now);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+  await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.id, userId))
+      .limit(1);
+
+    if (!target) throw new Error('User not found');
+
+    if (plan === 'free') {
+      await tx
+        .update(schema.subscription)
+        .set({
+          status: 'canceled',
+          cancelAtPeriodEnd: false,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(schema.subscription.referenceId, userId),
+            inArray(schema.subscription.status, ['active', 'trialing']),
+          ),
+        );
+      return;
+    }
+
+    const [current] = await tx
+      .select()
+      .from(schema.subscription)
+      .where(
+        and(
+          eq(schema.subscription.referenceId, userId),
+          inArray(schema.subscription.status, ['active', 'trialing']),
+        ),
+      )
+      .orderBy(desc(schema.subscription.createdAt))
+      .limit(1);
+
+    if (current) {
+      await tx
+        .update(schema.subscription)
+        .set({
+          plan,
+          status: 'active',
+          periodStart: current.periodStart ?? now,
+          periodEnd,
+          trialStart: null,
+          trialEnd: null,
+          cancelAtPeriodEnd: false,
+          updatedAt: now,
+        })
+        .where(eq(schema.subscription.id, current.id));
+      return;
+    }
+
+    await tx.insert(schema.subscription).values({
+      id: randomUUID(),
+      plan,
+      referenceId: userId,
+      status: 'active',
+      periodStart: now,
+      periodEnd,
+      cancelAtPeriodEnd: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  await refillCreditsForPlan(userId, plan, periodEnd);
+}
+
+export async function addCreditsByAdmin({
+  userId,
+  amount,
+  note,
+}: {
+  userId: string;
+  amount: number;
+  note?: string;
+}) {
+  const admin = await requireAdminUser();
+
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('Credit amount must be a positive whole number');
+  }
+
+  if (amount > 1_000_000) {
+    throw new Error('Credit grant is too large');
+  }
+
+  await ensureUserCredits(userId);
+
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(schema.userCredits)
+      .set({
+        balance: sql`${schema.userCredits.balance} + ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.userCredits.userId, userId))
+      .returning({ balance: schema.userCredits.balance });
+
+    if (!updated) {
+      throw new Error('User credits row not found');
+    }
+
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount,
+      balanceAfter: updated.balance,
+      reason: 'admin_credit_grant',
+      metadata: {
+        note: note?.trim() || null,
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+      },
+    });
+  });
 }
 
 export async function deleteUserCascade({ userId }: { userId: string }) {

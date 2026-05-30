@@ -2,7 +2,7 @@ import 'server-only';
 
 import { db } from '@saru/db';
 import * as schema from '@saru/db';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import {
   CREDIT_ALLOWANCES,
   type CreditPlan,
@@ -164,30 +164,47 @@ export const deductCredits = async ({
   reason: string;
   metadata?: Record<string, unknown>;
 }): Promise<DeductCreditsResult> => {
-  const info = await ensureUserCredits(userId);
+  await ensureUserCredits(userId);
 
-  if (info.balance < cost) {
-    return { ok: false, balance: info.balance, required: cost };
+  if (!Number.isInteger(cost) || cost <= 0) {
+    throw new Error('Credit cost must be a positive whole number');
   }
 
-  const newBalance = info.balance - cost;
-
-  await db.transaction(async (tx) => {
-    await tx
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
       .update(schema.userCredits)
-      .set({ balance: newBalance, updatedAt: new Date() })
-      .where(eq(schema.userCredits.userId, userId));
+      .set({
+        balance: sql`${schema.userCredits.balance} - ${cost}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.userCredits.userId, userId),
+          gte(schema.userCredits.balance, cost),
+        ),
+      )
+      .returning({ balance: schema.userCredits.balance });
+
+    if (!updated) {
+      const [current] = await tx
+        .select({ balance: schema.userCredits.balance })
+        .from(schema.userCredits)
+        .where(eq(schema.userCredits.userId, userId))
+        .limit(1);
+
+      return { ok: false, balance: current?.balance ?? 0, required: cost };
+    }
 
     await tx.insert(schema.creditTransactions).values({
       userId,
       amount: -cost,
-      balanceAfter: newBalance,
+      balanceAfter: updated.balance,
       reason,
       metadata: metadata ?? null,
     });
-  });
 
-  return { ok: true, balance: newBalance };
+    return { ok: true, balance: updated.balance };
+  });
 };
 
 export const syncCreditsFromSubscription = async (userId: string): Promise<void> => {

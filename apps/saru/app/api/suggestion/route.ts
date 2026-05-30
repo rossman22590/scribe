@@ -6,7 +6,7 @@ import { updateDocumentPrompt } from '@/lib/ai/prompts';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
-import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getEffectiveMinCredits } from '@/lib/credits/token-pricing';
 
 async function handleSuggestionRequest(
   documentId: string,
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    const creditError = await assertMinimumCredits(userId, getEffectiveMinCredits());
     if (creditError) return creditError;
 
     const url = new URL(request.url);
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    const creditError = await assertMinimumCredits(userId, getEffectiveMinCredits());
     if (creditError) return creditError;
 
     const {

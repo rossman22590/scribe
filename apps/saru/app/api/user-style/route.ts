@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { myProvider } from '@/lib/ai/providers';
 import { auth } from '@/lib/auth';
 import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
-import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getEffectiveMinCredits } from '@/lib/credits/token-pricing';
 import { getUserSubscriptionPlan } from '@/lib/subscription';
 
 export const maxDuration = 30;
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    const creditError = await assertMinimumCredits(userId, getEffectiveMinCredits());
     if (creditError) return creditError;
 
     const { sampleText } = await request.json();

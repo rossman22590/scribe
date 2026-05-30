@@ -27,7 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/utils';
 import { Paywall } from '@/components/paywall';
-import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getEffectiveMinCredits } from '@/lib/credits/token-pricing';
 
 export function AiSettingsMenu() {
   const { suggestionLength, customInstructions, writingSample, writingStyleSummary, applyStyle } = useAiOptionsValue();
@@ -70,7 +70,7 @@ export function AiSettingsMenu() {
           if (errData.error === 'insufficient_credits') {
             setPaywallOpen(true);
             mutate('/api/user/credits');
-            errMessage = `Not enough credits (need ${errData.required ?? MIN_CREDITS_PER_REQUEST}+ based on tokens used).`;
+            errMessage = `Not enough credits (need ${errData.required ?? getEffectiveMinCredits()}+ based on tokens used).`;
           } else if (errData.error === 'upgrade_required') {
             setPaywallOpen(true);
             errMessage = errData.message ?? 'Premium or Ultra required.';

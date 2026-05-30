@@ -11,6 +11,11 @@ import {
  */
 export const CREDIT_USD_VALUE = Number(process.env.CREDIT_USD_VALUE ?? 0.01);
 
+/** Global markup on token-derived charges (2 = 100% more expensive than raw OR cost). */
+export const CREDIT_COST_MULTIPLIER = Number(
+  process.env.CREDIT_COST_MULTIPLIER ?? 2
+);
+
 /** OpenRouter list price: USD per 1 million tokens */
 export const OPENROUTER_USD_PER_MILLION: Record<string, OpenRouterUsdPerMillion> =
   {

@@ -2,14 +2,17 @@ import 'server-only';
 
 import type { LanguageModelUsage } from 'ai';
 import { deductCredits, ensureUserCredits, type DeductCreditsResult } from './service';
-import { creditsFromTokenUsage, MIN_CREDITS_PER_REQUEST } from './token-pricing';
-import { openRouterCostUsd } from './openrouter-pricing';
+import {
+  creditsFromTokenUsage,
+  getEffectiveMinCredits,
+} from './token-pricing';
+import { openRouterCostUsd, CREDIT_COST_MULTIPLIER } from './openrouter-pricing';
 import { insufficientCreditsResponse } from './require-credits';
 import { NextResponse } from 'next/server';
 
 export const assertMinimumCredits = async (
   userId: string,
-  minimum: number = MIN_CREDITS_PER_REQUEST
+  minimum: number = getEffectiveMinCredits()
 ): Promise<NextResponse | null> => {
   const info = await ensureUserCredits(userId);
   if (info.balance < minimum) {
@@ -44,6 +47,7 @@ export const deductCreditsFromUsage = async ({
       outputTokens: usage?.outputTokens ?? 0,
       totalTokens: usage?.totalTokens ?? 0,
       costUsd,
+      creditCostMultiplier: CREDIT_COST_MULTIPLIER,
       creditsCharged: cost,
       ...extraMetadata,
     },

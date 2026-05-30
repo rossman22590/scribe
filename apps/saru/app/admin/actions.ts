@@ -9,11 +9,14 @@ import {
   deleteUserCascade,
   deleteWaitlistEntryByAdmin,
   revokeSessionByAdmin,
+  addCreditsByAdmin,
   setDocumentVisibility,
+  setUserPlanByAdmin,
   setUserEmailVerified,
   setUserRole,
   type AdminRole,
 } from '@/lib/admin';
+import type { CreditPlan } from '@/lib/credits/config';
 
 function readRequired(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -44,6 +47,36 @@ export async function updateUserVerificationAction(formData: FormData) {
   const emailVerified = readRequired(formData, 'emailVerified') === 'true';
 
   await setUserEmailVerified({ userId, emailVerified });
+  refreshAdmin();
+}
+
+export async function updateUserPlanAction(formData: FormData) {
+  const userId = readRequired(formData, 'userId');
+  const plan = readRequired(formData, 'plan') as CreditPlan;
+
+  if (plan !== 'free' && plan !== 'premium' && plan !== 'ultra') {
+    throw new Error('Invalid plan');
+  }
+
+  await setUserPlanByAdmin({ userId, plan });
+  refreshAdmin();
+}
+
+export async function addUserCreditsAction(formData: FormData) {
+  const userId = readRequired(formData, 'userId');
+  const rawAmount = readRequired(formData, 'amount');
+  const note = formData.get('note');
+  const amount = Number(rawAmount);
+
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('Credit amount must be a positive whole number');
+  }
+
+  await addCreditsByAdmin({
+    userId,
+    amount,
+    note: typeof note === 'string' ? note : undefined,
+  });
   refreshAdmin();
 }
 

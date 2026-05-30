@@ -34,7 +34,7 @@ import { myProvider } from '@/lib/ai/providers';
 import { auth } from "@/lib/auth";
 import { headers } from 'next/headers';
 import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
-import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getEffectiveMinCredits } from '@/lib/credits/token-pricing';
 import { getUserSubscriptionPlan } from '@/lib/subscription';
 import { canUseModel } from '@/lib/credits/plans';
 import { chatModels } from '@/lib/ai/models';
@@ -255,7 +255,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    const creditError = await assertMinimumCredits(userId, getEffectiveMinCredits());
     if (creditError) return creditError;
 
     let activeDocumentId: ActiveDocumentId = requestData?.activeDocumentId ?? undefined;

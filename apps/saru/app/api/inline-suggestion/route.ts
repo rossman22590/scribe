@@ -4,7 +4,7 @@ import { myProvider } from '@/lib/ai/providers';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
-import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getEffectiveMinCredits } from '@/lib/credits/token-pricing';
 
 async function handleInlineSuggestionRequest(
   userId: string,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    const creditError = await assertMinimumCredits(userId, getEffectiveMinCredits());
     if (creditError) return creditError;
 
     const { contextBefore = '', contextAfter = '', structureInfo = {}, aiOptions = {} } = await request.json();

@@ -1,6 +1,7 @@
 import type { LanguageModelUsage } from 'ai';
 import {
   CREDIT_USD_VALUE,
+  CREDIT_COST_MULTIPLIER,
   openRouterCostUsd,
   getOpenRouterPricing,
 } from './openrouter-pricing';
@@ -9,6 +10,20 @@ export const MIN_CREDITS_PER_REQUEST = Number(
   process.env.CREDIT_MIN_PER_REQUEST ?? 1
 );
 
+/** Minimum credits per request after global multiplier */
+export const getEffectiveMinCredits = (): number =>
+  Math.max(
+    MIN_CREDITS_PER_REQUEST,
+    Math.ceil(MIN_CREDITS_PER_REQUEST * CREDIT_COST_MULTIPLIER)
+  );
+
+/** Apply global markup; enforces effective minimum */
+export const applyCreditCostMultiplier = (baseCredits: number): number =>
+  Math.max(
+    getEffectiveMinCredits(),
+    Math.ceil(baseCredits * CREDIT_COST_MULTIPLIER)
+  );
+
 export const creditsFromTokenUsage = (
   modelId: string,
   usage: LanguageModelUsage | undefined
@@ -16,11 +31,11 @@ export const creditsFromTokenUsage = (
   const costUsd = openRouterCostUsd(modelId, usage);
 
   if (costUsd <= 0) {
-    return MIN_CREDITS_PER_REQUEST;
+    return getEffectiveMinCredits();
   }
 
-  const credits = Math.ceil(costUsd / CREDIT_USD_VALUE);
-  return Math.max(MIN_CREDITS_PER_REQUEST, credits);
+  const baseCredits = Math.ceil(costUsd / CREDIT_USD_VALUE);
+  return applyCreditCostMultiplier(baseCredits);
 };
 
 /** Rough upper bound for pre-flight balance checks in the UI */
@@ -35,10 +50,8 @@ export const estimateCreditsForTokens = (
     (estimatedInputTokens / 1_000_000) * inputUsdPerMillion +
     (estimatedOutputTokens / 1_000_000) * outputUsdPerMillion;
 
-  return Math.max(
-    MIN_CREDITS_PER_REQUEST,
-    Math.ceil(costUsd / CREDIT_USD_VALUE)
-  );
+  const baseCredits = Math.ceil(costUsd / CREDIT_USD_VALUE);
+  return applyCreditCostMultiplier(baseCredits);
 };
 
 export const formatUsageCreditsLabel = (modelId: string): string => {
