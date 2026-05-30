@@ -8,13 +8,10 @@ import { Cormorant_Garamond, Instrument_Sans } from 'next/font/google';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
-  BookOpenText,
   Check,
   ChevronRight,
-  FileClock,
   FileText,
   History,
-  Keyboard,
   Layers3,
   MessageSquareText,
   PenLine,
@@ -76,10 +73,28 @@ const workflowSteps = [
   },
 ] as const;
 
-const studioNotes = [
-  { icon: BookOpenText, label: 'Tone lock', value: '91%' },
-  { icon: Keyboard, label: 'Draft depth', value: '4 passes' },
-  { icon: FileClock, label: 'History', value: 'traceable' },
+const studioMoments = [
+  {
+    icon: PenLine,
+    kicker: 'Select the line',
+    title: 'Mark the sentence that feels almost there.',
+    copy: 'The page stays still while the edit controls appear exactly where the work is happening.',
+    detail: 'selection anchored',
+  },
+  {
+    icon: MessageSquareText,
+    kicker: 'Ask beside it',
+    title: 'Give the assistant one precise move.',
+    copy: 'Tighter thesis, warmer close, cleaner transition. The prompt lives next to the draft, not in another tab.',
+    detail: 'context held',
+  },
+  {
+    icon: History,
+    kicker: 'Keep the trail',
+    title: 'Choose the version that actually sounds like you.',
+    copy: 'Accepted edits become part of the document, while earlier passes stay close enough to return to.',
+    detail: 'revision visible',
+  },
 ] as const;
 
 const marqueeWords = [
@@ -182,6 +197,81 @@ function StudioStrip() {
         )}
       </div>
     </div>
+  );
+}
+
+function StudioMomentSection() {
+  return (
+    <section className="relative overflow-hidden bg-[#0b0a09] px-6 py-16 text-[#f4eadb] md:px-8 md:py-20 lg:px-12">
+      <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.74fr_1.26fr] lg:items-start">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.35 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-xl"
+        >
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#d8b46b]">
+            How it feels
+          </p>
+          <h2
+            className="mt-5 text-5xl font-semibold leading-[0.9] tracking-normal md:text-6xl"
+            style={{ fontFamily: 'var(--font-editorial-serif)' }}
+          >
+            The page leads. AI follows.
+          </h2>
+          <p className="mt-6 text-base leading-8 text-[#f4eadb]/62">
+            No abstract scores. No product theater. Just the three gestures that
+            make the workspace feel fast, deliberate, and expensive.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-3">
+          {studioMoments.map((moment, index) => {
+            const Icon = moment.icon;
+
+            return (
+              <motion.article
+                key={moment.title}
+                initial={{ opacity: 0, x: 24 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, amount: 0.35 }}
+                transition={{ duration: 0.5, delay: index * 0.07 }}
+                className="group grid gap-5 rounded-lg border border-white/10 bg-white/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-[#d8b46b]/35 hover:bg-[#f4eadb] hover:text-[#17120f] md:grid-cols-[auto_1fr_auto]"
+              >
+                <div className="flex items-center gap-4 md:block">
+                  <span className="block text-xs uppercase tracking-[0.24em] text-[#d8b46b] transition duration-500 group-hover:text-[#9e3f30]">
+                    0{index + 1}
+                  </span>
+                  <span className="flex size-11 items-center justify-center rounded-lg border border-white/10 bg-[#0b0a09] text-[#d8b46b] transition duration-500 group-hover:border-[#17120f]/10 group-hover:bg-[#17120f] group-hover:text-[#f4eadb] md:mt-5">
+                    <Icon className="size-5" />
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#f4eadb]/40 transition duration-500 group-hover:text-[#9e3f30]">
+                    {moment.kicker}
+                  </p>
+                  <h3 className="mt-3 text-2xl font-semibold leading-tight text-[#f4eadb] transition duration-500 group-hover:text-[#17120f]">
+                    {moment.title}
+                  </h3>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[#f4eadb]/56 transition duration-500 group-hover:text-[#5b4a41]">
+                    {moment.copy}
+                  </p>
+                </div>
+
+                <div className="flex items-end md:justify-end">
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-[#f4eadb]/45 transition duration-500 group-hover:border-[#17120f]/10 group-hover:bg-[#17120f] group-hover:text-[#f4eadb]">
+                    {moment.detail}
+                  </span>
+                </div>
+              </motion.article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -447,36 +537,7 @@ export default function Home() {
 
         <StudioStrip />
 
-        <section className="bg-[#0b0a09] px-6 py-12 text-[#f4eadb] md:px-8 lg:px-12">
-          <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
-            {studioNotes.map((note, index) => (
-              <motion.div
-                key={note.label}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.4 }}
-                transition={{ duration: 0.45, delay: index * 0.06 }}
-                className="group rounded-lg border border-white/10 bg-white/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-[#d8b46b]/35 hover:bg-white/[0.06]"
-              >
-                <div className="mb-8 flex items-center justify-between text-[#f4eadb]/45">
-                  <note.icon className="size-5" />
-                  <span className="text-xs uppercase tracking-[0.24em]">
-                    0{index + 1}
-                  </span>
-                </div>
-                <p className="text-sm uppercase tracking-[0.22em] text-[#d8b46b]">
-                  {note.label}
-                </p>
-                <p
-                  className="mt-3 text-4xl font-semibold text-[#f4eadb]"
-                  style={{ fontFamily: 'var(--font-editorial-serif)' }}
-                >
-                  {note.value}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+        <StudioMomentSection />
 
         <StorySection />
         <Features />
