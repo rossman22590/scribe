@@ -3,6 +3,75 @@
 @tailwind utilities;
 
 @layer utilities {
+    .scribe-grain::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.18;
+        mix-blend-mode: soft-light;
+        background-image:
+            repeating-linear-gradient(0deg, rgba(244, 234, 219, 0.18) 0 1px, transparent 1px 3px),
+            repeating-linear-gradient(90deg, rgba(244, 234, 219, 0.08) 0 1px, transparent 1px 4px);
+        background-size: 5px 5px;
+    }
+
+    .scribe-luxury-grid {
+        background-image:
+            linear-gradient(to right, rgba(244, 234, 219, 0.08) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(244, 234, 219, 0.08) 1px, transparent 1px),
+            linear-gradient(135deg, rgba(216, 180, 107, 0.12), transparent 34%, rgba(47, 124, 117, 0.1) 68%, transparent);
+        background-size: 64px 64px, 64px 64px, 100% 100%;
+    }
+
+    .scribe-caret {
+        animation: scribe-caret 1s steps(2, start) infinite;
+    }
+
+    .scribe-marquee {
+        animation: scribe-marquee 34s linear infinite;
+    }
+
+    .scribe-shimmer {
+        position: relative;
+    }
+
+    .scribe-shimmer::after {
+        content: "";
+        position: absolute;
+        inset: -60% auto -60% -45%;
+        width: 35%;
+        transform: rotate(18deg);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+        transition: left 0.7s cubic-bezier(.23, 1, .32, 1);
+    }
+
+    .scribe-shimmer:hover::after {
+        left: 115%;
+    }
+
+    @keyframes scribe-caret {
+        0%,
+        45% {
+            opacity: 1;
+        }
+
+        46%,
+        100% {
+            opacity: 0;
+        }
+    }
+
+    @keyframes scribe-marquee {
+        from {
+            transform: translateX(0);
+        }
+
+        to {
+            transform: translateX(-33.333%);
+        }
+    }
+
     .text-balance {
         text-wrap: balance;
     }
@@ -57,6 +126,15 @@
 
     /* Respect reduced motion preferences */
     @media (prefers-reduced-motion: reduce) {
+        .scribe-caret,
+        .scribe-marquee {
+            animation: none !important;
+        }
+
+        .scribe-shimmer::after {
+            display: none;
+        }
+
         .ease-out-quad,
         .ease-out-cubic,
         .ease-out-quart,
