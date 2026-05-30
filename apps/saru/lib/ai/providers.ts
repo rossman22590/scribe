@@ -4,23 +4,21 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { OPENROUTER_MODEL_SLUGS } from './openrouter-models';
+
+const openRouterAppUrl =
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const openRouterAppTitle = process.env.OPENROUTER_APP_TITLE || 'Scribe';
 
 const openrouter = createOpenRouter({
   headers: {
-    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'X-Title': 'Scribe',
+    'HTTP-Referer': openRouterAppUrl,
+    'X-OpenRouter-Title': openRouterAppTitle,
+    'X-Title': openRouterAppTitle,
   },
 });
 
-const openRouterModels = {
-  small: 'anthropic/claude-3.5-haiku',
-  large: 'anthropic/claude-sonnet-4.6',
-  reasoning: 'openai/gpt-5.5',
-  title: process.env.OPENROUTER_TITLE_MODEL || 'openai/gpt-oss-20b',
-  artifact:
-    process.env.OPENROUTER_ARTIFACT_MODEL ||
-    'anthropic/claude-3.5-haiku',
-};
+const openRouterModels = OPENROUTER_MODEL_SLUGS;
 
 const openRouterChat = (modelId: string) => openrouter.chat(modelId);
 

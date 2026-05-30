@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from '@saru/db';
 import * as schema from '@saru/db';
-import { eq, desc, asc, inArray, gt, gte, and, sql, lt, type SQL } from 'drizzle-orm'; // Import Drizzle operators and
+import { eq, desc, asc, inArray, gt, gte, and, sql, lt, or, isNull, type SQL } from 'drizzle-orm'; // Import Drizzle operators and
 
 type Chat = typeof schema.Chat.$inferSelect;
 type Message = typeof schema.Message.$inferSelect;
@@ -977,7 +977,7 @@ export async function getChatExists({ chatId }: { chatId: string }): Promise<boo
 // --- Subscription Queries --- //
 
 // Define the type for the subscription based on your schema
-type Subscription = typeof schema.subscription.$inferSelect;
+export type Subscription = typeof schema.subscription.$inferSelect;
 
 /**
  * Fetches the active or trialing subscription for a given user ID.
@@ -991,13 +991,23 @@ export async function getActiveSubscriptionByUserId({ userId }: { userId: string
   }
 
   try {
+    const now = new Date();
     const data = await db
       .select()
       .from(schema.subscription)
       .where(
         and(
           eq(schema.subscription.referenceId, userId),
-          inArray(schema.subscription.status, ['active', 'trialing'])
+          or(
+            eq(schema.subscription.status, 'active'),
+            and(
+              eq(schema.subscription.status, 'trialing'),
+              or(
+                isNull(schema.subscription.trialEnd),
+                gt(schema.subscription.trialEnd, now)
+              )
+            )
+          )
         )
       )
       .orderBy(desc(schema.subscription.createdAt))

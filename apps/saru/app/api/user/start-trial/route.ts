@@ -4,6 +4,7 @@ import { db } from '@saru/db';
 import * as schema from '@saru/db';
 import { randomUUID } from 'crypto';
 import { eq, inArray, desc, and } from 'drizzle-orm';
+import { refillCreditsForPlan } from '@/lib/credits/service';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,12 +49,14 @@ export async function POST() {
   const trialEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
   await db.insert(schema.subscription).values({
     id: randomUUID(),
-    plan: 'saru',
+    plan: 'premium',
     referenceId: userId,
     status: 'trialing',
     trialStart: now,
     trialEnd,
   });
+
+  await refillCreditsForPlan(userId, 'premium', trialEnd);
 
   return NextResponse.json({ trialEnd });
 } 

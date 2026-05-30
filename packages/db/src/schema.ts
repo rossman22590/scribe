@@ -21,6 +21,7 @@ export const user = pgTable("user", {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   username: text('username').unique(),
+  role: text('role').notNull().default('user'),
   emailVerified: boolean('email_verified').notNull(),
   image: text('image'),
   createdAt: timestamp('created_at').notNull(),
@@ -153,12 +154,37 @@ export const subscription = pgTable("subscription", {
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userCredits = pgTable('user_credits', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  balance: integer('balance').notNull().default(0),
+  periodStart: timestamp('period_start', { mode: 'date' }).notNull(),
+  periodEnd: timestamp('period_end', { mode: 'date' }).notNull(),
+  planSnapshot: text('plan_snapshot').notNull().default('free'),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type UserCredits = InferSelectModel<typeof userCredits>;
+
+export const creditTransactions = pgTable('credit_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  reason: text('reason').notNull(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export type CreditTransaction = InferSelectModel<typeof creditTransactions>;
+
+export const userRelations = relations(user, ({ many, one }) => ({
 	accounts: many(account),
   sessions: many(session),
   documents: many(Document),
   chats: many(Chat),
   subscriptions: many(subscription),
+  credits: one(userCredits),
+  creditTransactions: many(creditTransactions),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -214,6 +240,20 @@ export const subscriptionRelations = relations(subscription, ({ one }) => ({
 		fields: [subscription.referenceId],
 		references: [user.id],
 	}),
+}));
+
+export const userCreditsRelations = relations(userCredits, ({ one }) => ({
+  user: one(user, {
+    fields: [userCredits.userId],
+    references: [user.id],
+  }),
+}));
+
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
+  user: one(user, {
+    fields: [creditTransactions.userId],
+    references: [user.id],
+  }),
 }));
 
 export const waitlist = pgTable("waitlist", {

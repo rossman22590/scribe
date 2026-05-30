@@ -21,6 +21,7 @@ import { useAiOptionsValue } from '@/hooks/ai-options';
 import { mutate as globalMutate } from 'swr';
 import type { ChatContextPayload, ChatAiOptions } from '@/types/chat';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Paywall } from '@/components/paywall';
 
 const SkeletonMessage = ({ role }: { role: 'user' | 'assistant' }) => (
   <motion.div
@@ -80,6 +81,7 @@ export function Chat({
   );
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [requestedChatLoadId, setRequestedChatLoadId] = useState<string | null>(null);
+  const [isPaywallOpen, setPaywallOpen] = useState(false);
 
   // Input state management (now manual in v5)
   const [input, setInput] = useState('');
@@ -163,6 +165,17 @@ export function Chat({
   },
   onError: (err) => {
     console.error('Chat Error:', err);
+    const message = err?.message ?? String(err);
+    if (
+      message.includes('insufficient_credits') ||
+      message.includes('upgrade_required')
+    ) {
+      toast.error('Not enough credits or plan upgrade required.');
+      setPaywallOpen(true);
+      globalMutate('/api/user/credits');
+      return;
+    }
+    toast.error('Something went wrong. Please try again.');
   },
   });
 
@@ -448,7 +461,7 @@ export function Chat({
         </div>
       )}
 
-      {/* <DataStreamHandler id={chatId} /> */}
+      <Paywall isOpen={isPaywallOpen} onOpenChange={setPaywallOpen} />
     </div>
   );
 }

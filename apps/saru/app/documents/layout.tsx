@@ -8,6 +8,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { SuggestionOverlayProvider } from '@/components/suggestion-overlay-provider';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
+import { getCurrentAdminUser } from '@/lib/admin';
 import { getCurrentDocumentsByUserId } from '@/lib/db/queries';
 
 export default async function DocumentsLayout({ children }: { children: ReactNode }) {
@@ -18,6 +19,7 @@ export default async function DocumentsLayout({ children }: { children: ReactNod
   const documents = user?.id
     ? await getCurrentDocumentsByUserId({ userId: user.id })
     : [];
+  const adminUser = user?.id ? await getCurrentAdminUser() : null;
   const cookieHeader = readonlyHeaders.get('cookie') || '';
   const leftCookie = cookieHeader
     .split('; ')
@@ -30,7 +32,7 @@ export default async function DocumentsLayout({ children }: { children: ReactNod
       <SidebarProvider defaultOpenLeft={!isLeftSidebarCollapsed} defaultOpenRight={true}>
           <SuggestionOverlayProvider>
           <div className="flex flex-row h-dvh w-full bg-background">
-          <AppSidebar user={user} initialDocuments={documents} />
+          <AppSidebar user={user} initialDocuments={documents} isAdmin={Boolean(adminUser)} />
           <main className="flex-1 flex flex-row min-w-0">
             <div className="flex-1 min-w-0 overflow-hidden border-r subtle-border">
               {children} 

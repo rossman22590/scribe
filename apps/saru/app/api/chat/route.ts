@@ -33,6 +33,11 @@ import { NextResponse } from 'next/server';
 import { myProvider } from '@/lib/ai/providers';
 import { auth } from "@/lib/auth";
 import { headers } from 'next/headers';
+import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
+import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
+import { getUserSubscriptionPlan } from '@/lib/subscription';
+import { canUseModel } from '@/lib/credits/plans';
+import { chatModels } from '@/lib/ai/models';
 import type { Document } from '@saru/db';
 import { webSearch } from '@/lib/ai/tools/web-search';
 import type { ActiveDocumentId, ChatContextPayload, ChatAiOptions } from '@/types/chat';
@@ -241,6 +246,18 @@ export async function POST(request: Request) {
       trailingMessageId,
     }: ChatRequestBody = await request.json();
 
+    const subscriptionPlan = await getUserSubscriptionPlan(userId);
+    const modelDef = chatModels.find((m) => m.id === selectedChatModel);
+    if (modelDef?.proOnly && !canUseModel(selectedChatModel, subscriptionPlan, true)) {
+      return NextResponse.json(
+        { error: 'upgrade_required', message: 'This model requires a Premium or Ultra subscription.' },
+        { status: 402 }
+      );
+    }
+
+    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    if (creditError) return creditError;
+
     let activeDocumentId: ActiveDocumentId = requestData?.activeDocumentId ?? undefined;
     let mentionedDocumentIds = requestData?.mentionedDocumentIds ?? undefined;
     const customInstructions = aiOptions?.customInstructions ?? null;
@@ -427,6 +444,24 @@ export async function POST(request: Request) {
             : undefined,
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: toolsWithStream,
+          onFinish: async ({ totalUsage }) => {
+            try {
+              const deductResult = await deductCreditsFromUsage({
+                userId,
+                modelId: selectedChatModel,
+                usage: totalUsage,
+                reason: 'chat',
+                extraMetadata: { chatId },
+              });
+              if (!deductResult.ok) {
+                console.warn(
+                  `[Chat] Insufficient credits after stream for user ${userId}: need ${deductResult.required}, have ${deductResult.balance}`
+                );
+              }
+            } catch (error) {
+              console.error('[Chat] Failed to deduct credits from token usage:', error);
+            }
+          },
         });
 
         result.consumeStream();

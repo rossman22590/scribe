@@ -1,32 +1,33 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/app/(auth)/auth'; // Use the aliased path
-import { getActiveSubscriptionByUserId, unpublishAllDocumentsByUserId } from '@/lib/db/queries';
-
-export const dynamic = 'force-dynamic'; // Ensure fresh data on each request
+import { getSession } from '@/app/(auth)/auth';
+import { unpublishAllDocumentsByUserId } from '@/lib/db/queries';
+import { getSubscriptionStatusForUser } from '@/lib/subscription';
+import { isStripeBillingEnforced } from '@/lib/credits/config';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const session = await getSession();
   if (!session?.user?.id) {
-    return NextResponse.json({ hasActiveSubscription: false }, { status: 200 });
+    return NextResponse.json({
+      hasActiveSubscription: false,
+      plan: 'free',
+      status: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      trialEnd: null,
+    });
   }
 
   const userId = session.user.id;
+  const status = await getSubscriptionStatusForUser(userId);
 
-  if (process.env.STRIPE_ENABLED !== 'true') {
-    return NextResponse.json({ hasActiveSubscription: true }, { status: 200 });
-  }
-
-  const subscription = await getActiveSubscriptionByUserId({ userId });
-  const hasActiveSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
-
-  // If no active subscription, un-publish any public documents
-  if (!hasActiveSubscription) {
+  if (isStripeBillingEnforced() && !status.hasActiveSubscription) {
     try {
       await unpublishAllDocumentsByUserId({ userId });
     } catch (error) {
-      console.error(`[API /user/subscription-status] Failed to unpublish documents for user ${userId}:`, error);
+      console.error(`[API /user/subscription-status] Failed to unpublish for ${userId}:`, error);
     }
   }
 
-  return NextResponse.json({ hasActiveSubscription }, { status: 200 });
-} 
+  return NextResponse.json(status);
+}

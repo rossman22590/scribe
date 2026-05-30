@@ -17,10 +17,12 @@ export const chatModels: Array<ChatModel> = [
     id: 'chat-model-large',
     name: 'Large Model',
     description: 'Claude Sonnet 4.6 for complex drafts and edits',
+    proOnly: true,
   },
   {
     id: 'chat-model-reasoning',
     name: 'Reasoning Model',
     description: 'GPT-5.5 for advanced step-by-step reasoning',
+    proOnly: true,
   },
 ];

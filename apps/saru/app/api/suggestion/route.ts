@@ -3,7 +3,10 @@ import { streamText, smoothStream } from 'ai';
 import { getDocumentById } from '@/lib/db/queries';
 import { myProvider } from '@/lib/ai/providers';
 import { updateDocumentPrompt } from '@/lib/ai/prompts';
-import { getSessionCookie } from 'better-auth/cookies';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
+import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
 
 async function handleSuggestionRequest(
   documentId: string,
@@ -37,6 +40,7 @@ async function handleSuggestionRequest(
 
       console.log("Starting to stream suggestion with prompt:", description);
       await streamSuggestion({
+        userId,
         document,
         description,
         selectedText,
@@ -69,13 +73,22 @@ async function handleSuggestionRequest(
   });
 }
 
+const getAuthenticatedUserId = async (): Promise<string | null> => {
+  const readonlyHeaders = await headers();
+  const requestHeaders = new Headers(readonlyHeaders);
+  const session = await auth.api.getSession({ headers: requestHeaders });
+  return session?.user?.id ?? null;
+};
+
 export async function GET(request: Request) {
   try {
-    const sessionCookie = getSessionCookie(request);
-    if (!sessionCookie) {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = sessionCookie;
+
+    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    if (creditError) return creditError;
 
     const url = new URL(request.url);
     const documentId = url.searchParams.get('documentId');
@@ -99,11 +112,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionCookie = getSessionCookie(request);
-    if (!sessionCookie) {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = sessionCookie;
+
+    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    if (creditError) return creditError;
 
     const {
       documentId,
@@ -126,6 +141,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function streamSuggestion({
+  userId,
   document,
   description,
   selectedText,
@@ -135,6 +151,7 @@ async function streamSuggestion({
   applyStyle,
   write
 }: {
+  userId: string;
   document: any;
   description: string;
   selectedText?: string;
@@ -184,7 +201,7 @@ Only output the resulting text, with no preamble or explanation.`;
 
   console.log("Starting stream text generation with content length:", contentToModify.length, "and options:", { suggestionLength, customInstructions });
 
-  const { fullStream } = streamText({
+  const result = streamText({
     model: myProvider.languageModel('artifact-model'),
     system: `${updateDocumentPrompt(contentToModify, 'text')}\n\n${formattingRules}`,
     experimental_transform: smoothStream({ chunking: 'word' }),
@@ -196,8 +213,10 @@ Only output the resulting text, with no preamble or explanation.`;
           content: contentToModify,
         }
       }
-    }
+    },
   });
+
+  const { fullStream } = result;
 
   let chunkCount = 0;
   for await (const delta of fullStream) {
@@ -217,4 +236,17 @@ Only output the resulting text, with no preamble or explanation.`;
   }
 
   console.log(`Stream complete: Generated ${draftContent.length} characters in ${chunkCount} chunks`);
+
+  try {
+    const usage = await result.usage;
+    await deductCreditsFromUsage({
+      userId,
+      modelId: 'artifact-model',
+      usage,
+      reason: 'suggestion',
+      extraMetadata: { documentId: document.id },
+    });
+  } catch (error) {
+    console.error('[Suggestion] Failed to deduct credits:', error);
+  }
 } 

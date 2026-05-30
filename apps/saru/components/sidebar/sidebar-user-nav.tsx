@@ -1,13 +1,11 @@
 'use client';
 import { ChevronUp, Loader2 } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { useTheme } from 'next-themes';
 import { toast } from '@/components/toast';
 import type { ClientUser as User } from '@/lib/auth-client';
-import { cn } from '@/lib/utils';
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -22,14 +20,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Paywall } from '@/components/paywall';
+import { CreditsBadge } from '@/components/credits-badge';
+import { CreditTransactionsModal } from '@/components/credit-transactions-modal';
 
-type Subscription = {
-  id: string;
-  plan: string;
-  status: string;
-  trialEnd?: Date | string | null;
-  periodEnd?: Date | string | null;
-  cancelAtPeriodEnd?: boolean;
+type SubscriptionStatus = {
+  hasActiveSubscription: boolean;
+  plan: 'free' | 'premium' | 'ultra';
+  status: string | null;
+  periodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  trialEnd: string | null;
 };
 
 function formatDate(dateString: string | Date | undefined | null): string {
@@ -41,13 +41,13 @@ function formatDate(dateString: string | Date | undefined | null): string {
       day: 'numeric',
     });
   } catch (e) {
-    console.error("Error formatting date:", e);
+    console.error('Error formatting date:', e);
     return 'Invalid Date';
   }
 }
 
 function formatPlanName(planName: string | undefined | null): string {
-  if (!planName) return 'Unknown Plan';
+  if (!planName || planName === 'free') return 'Free';
   return planName.charAt(0).toUpperCase() + planName.slice(1);
 }
 
@@ -58,15 +58,16 @@ export function SidebarUserNav({ user }: { user: User | null }) {
   const [isSignOutLoading, setIsSignOutLoading] = useState(false);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
 
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const isStripeEnabled = process.env.NEXT_PUBLIC_STRIPE_ENABLED === 'true';
 
   useEffect(() => {
-    if (!isStripeEnabled || !user) {
+    if (!user) {
       setIsSubscriptionLoading(false);
       return;
     }
@@ -78,27 +79,17 @@ export function SidebarUserNav({ user }: { user: User | null }) {
     const fetchSubscription = async () => {
       try {
         const res = await fetch('/api/user/subscription-status');
-        const result = await res.json();
+        const result: SubscriptionStatus = await res.json();
         if (!isMounted) return;
         if (!res.ok) {
-          throw new Error(result.error || 'Failed to load subscription info.');
+          throw new Error('Failed to load subscription info.');
         }
-        if (result.hasActiveSubscription) {
-          setSubscription({
-            id: '',
-            plan: 'pro',
-            status: 'active',
-            trialEnd: null,
-            periodEnd: null,
-            cancelAtPeriodEnd: false,
-          });
-        } else {
-          setSubscription(null);
-        }
-      } catch (err: any) {
+        setSubscription(result);
+      } catch (err: unknown) {
         if (!isMounted) return;
+        const message = err instanceof Error ? err.message : 'Could not load subscription info.';
         console.error('Error fetching subscription:', err);
-        setSubscriptionError(err.message || 'Could not load subscription info.');
+        setSubscriptionError(message);
         setSubscription(null);
       } finally {
         if (isMounted) setIsSubscriptionLoading(false);
@@ -106,52 +97,63 @@ export function SidebarUserNav({ user }: { user: User | null }) {
     };
 
     fetchSubscription();
-    return () => { isMounted = false; };
-  }, [user, isStripeEnabled]);
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const handleSignOut = async () => {
     setIsSignOutLoading(true);
-    await authClient.signOut({
-    }, {
-      onRequest: () => {
-          setIsSignOutLoading(true); 
-      },
-      onSuccess: () => {
+    await authClient.signOut(
+      {},
+      {
+        onRequest: () => {
+          setIsSignOutLoading(true);
+        },
+        onSuccess: () => {
           router.push('/');
-          router.refresh(); 
-      },
-      onError: (ctx) => {
+          router.refresh();
+        },
+        onError: (ctx) => {
           setIsSignOutLoading(false);
           console.error('Error signing out:', ctx.error);
           toast({
             type: 'error',
-            description: ctx.error.message || 'Failed to sign out.'
+            description: ctx.error.message || 'Failed to sign out.',
           });
+        },
       }
-    });
+    );
   };
 
   const handleManageBilling = async () => {
-    if (isBillingLoading || isSubscriptionLoading || subscriptionError || !subscription) return;
+    if (isBillingLoading || isSubscriptionLoading || subscriptionError || !subscription?.hasActiveSubscription) {
+      return;
+    }
     setIsBillingLoading(true);
     try {
-      // Check if Stripe subscription functionality is available
       if (!('subscription' in authClient)) {
-        console.error('Stripe subscription functionality is not available');
         toast({
           type: 'error',
-          description: 'Billing management is currently unavailable. Please contact support.'
+          description: 'Billing management is currently unavailable. Please contact support.',
         });
         return;
       }
 
-      const { error: cancelError } = await (authClient as any).subscription.cancel({
+      const { error: cancelError } = await (
+        authClient as {
+          subscription: { cancel: (opts: object) => Promise<{ error?: { message?: string } }> };
+        }
+      ).subscription.cancel({
         returnUrl: window.location.href,
       });
-      if (cancelError) throw new Error(cancelError.message || 'Failed to redirect to billing portal.');
-    } catch (err: any) {
-      console.error("handleManageBilling error:", err);
-      toast({ type: 'error', description: err.message || 'Could not open billing portal.' });
+      if (cancelError) {
+        throw new Error(cancelError.message || 'Failed to redirect to billing portal.');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not open billing portal.';
+      console.error('handleManageBilling error:', err);
+      toast({ type: 'error', description: message });
       setIsBillingLoading(false);
     }
   };
@@ -175,6 +177,7 @@ export function SidebarUserNav({ user }: { user: User | null }) {
   } else if (subscription) {
     planName = formatPlanName(subscription.plan);
     const now = new Date();
+
     if (subscription.status === 'trialing') {
       const trialEndDate = subscription.trialEnd || subscription.periodEnd;
       const ends = new Date(trialEndDate || '').getTime();
@@ -182,22 +185,29 @@ export function SidebarUserNav({ user }: { user: User | null }) {
         statusText = `Trial ends ${formatDate(trialEndDate)}`;
         ctaText = 'Upgrade';
         ctaAction = () => setIsPaywallOpen(true);
-        ctaLoading = isSubscriptionLoading;
       } else {
         statusText = `Trial ended ${formatDate(trialEndDate)}`;
         ctaText = 'Subscribe';
         ctaAction = () => setIsPaywallOpen(true);
-        ctaLoading = isSubscriptionLoading;
       }
-    } else if (subscription.status === 'active') {
+    } else if (subscription.hasActiveSubscription) {
       if (subscription.cancelAtPeriodEnd) {
         statusText = `Cancels ${formatDate(subscription.periodEnd)}`;
       } else {
         statusText = `Renews ${formatDate(subscription.periodEnd)}`;
       }
-      ctaText = 'Manage';
-      ctaAction = handleManageBilling;
-      ctaLoading = isBillingLoading;
+      if (subscription.plan === 'premium') {
+        ctaText = 'Upgrade to Ultra';
+        ctaAction = () => setIsPaywallOpen(true);
+        ctaLoading = isSubscriptionLoading;
+      } else {
+        ctaText = 'Manage';
+        ctaAction = handleManageBilling;
+        ctaLoading = isBillingLoading;
+      }
+    } else {
+      ctaText = 'Subscribe';
+      ctaAction = () => setIsPaywallOpen(true);
     }
   }
 
@@ -205,6 +215,12 @@ export function SidebarUserNav({ user }: { user: User | null }) {
 
   return (
     <>
+      <div className="px-2 pb-2">
+        <CreditsBadge
+          onClick={() => setIsTransactionsOpen(true)}
+          className="w-full justify-center"
+        />
+      </div>
       <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>
@@ -215,7 +231,7 @@ export function SidebarUserNav({ user }: { user: User | null }) {
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" className="w-[--radix-popper-anchor-width]">
-              {isStripeEnabled && (
+              {(isStripeEnabled || subscription?.hasActiveSubscription) && (
                 <>
                   <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                     Subscription
@@ -224,11 +240,15 @@ export function SidebarUserNav({ user }: { user: User | null }) {
                     <p className="font-medium">{planName}</p>
                     <p className="text-xs text-muted-foreground">{statusText}</p>
                     <button
+                      type="button"
                       onClick={ctaAction}
                       disabled={ctaLoading}
                       className="mt-2 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50"
                     >
-                      {ctaLoading ? <Loader2 className="h-4 w-4 animate-spin inline-block mr-1 text-muted-foreground" /> : ctaText}
+                      {ctaLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin inline-block mr-1 text-muted-foreground" />
+                      ) : null}
+                      {ctaText}
                     </button>
                   </div>
                   <DropdownMenuSeparator />
@@ -241,7 +261,7 @@ export function SidebarUserNav({ user }: { user: User | null }) {
               >
                 {`Toggle ${theme === 'light' ? 'dark' : 'light'} mode`}
               </DropdownMenuItem>
-              {!isStripeEnabled && <DropdownMenuSeparator />}
+              <DropdownMenuSeparator />
 
               <DropdownMenuItem
                 className="cursor-pointer"
@@ -249,15 +269,22 @@ export function SidebarUserNav({ user }: { user: User | null }) {
                 disabled={isLoading}
               >
                 {isSignOutLoading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing out...</>
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing out...
+                  </>
                 ) : (
-                   'Sign out'
+                  'Sign out'
                 )}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
+      <CreditTransactionsModal
+        isOpen={isTransactionsOpen}
+        onOpenChange={setIsTransactionsOpen}
+        onUpgrade={() => setIsPaywallOpen(true)}
+      />
       <Paywall isOpen={isPaywallOpen} onOpenChange={setIsPaywallOpen} />
     </>
   );

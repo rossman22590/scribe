@@ -9,12 +9,15 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { FeedbackWidget } from '@/components/sidebar/feedback-widget';
 import type { User } from '@/lib/auth';
 import { Crimson_Text } from 'next/font/google'
+import { ShieldCheck } from 'lucide-react';
 
 const crimson = Crimson_Text({
   weight: ['400', '700'],
@@ -22,7 +25,15 @@ const crimson = Crimson_Text({
   display: 'swap',
 })
 
-export function AppSidebar({ user, initialDocuments }: { user: User | undefined; initialDocuments?: any[] }) {
+export function AppSidebar({
+  user,
+  initialDocuments,
+  isAdmin = false,
+}: {
+  user: User | undefined;
+  initialDocuments?: any[];
+  isAdmin?: boolean;
+}) {
   const { setOpenMobile } = useSidebar();
 
   return (
@@ -45,6 +56,20 @@ export function AppSidebar({ user, initialDocuments }: { user: User | undefined;
       </SidebarHeader>
 
       <SidebarContent>
+        {isAdmin && (
+          <div className="px-2 pb-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/admin" onClick={() => setOpenMobile(false)}>
+                    <ShieldCheck className="size-4" />
+                    <span>Admin</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
+        )}
         <div className="px-2">
           <SidebarDocuments user={user} initialDocuments={initialDocuments} />
         </div>

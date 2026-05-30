@@ -12,7 +12,9 @@ import { Resend } from 'resend';
 const googleEnabled = process.env.GOOGLE_ENABLED === 'true';
 const githubEnabled = process.env.GITHUB_ENABLED === 'true';
 
-const stripeEnabled = process.env.STRIPE_ENABLED === 'true' || process.env.NEXT_PUBLIC_STRIPE_ENABLED === 'true';
+const stripeEnabled =
+  process.env.STRIPE_ENABLED === 'true' &&
+  process.env.NEXT_PUBLIC_STRIPE_ENABLED === 'true';
 
 if (!process.env.BETTER_AUTH_SECRET) {
   throw new Error('Missing BETTER_AUTH_SECRET environment variable');
@@ -25,11 +27,17 @@ if (stripeEnabled) {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY is missing but Stripe is enabled.");
   }
-  if (!process.env.STRIPE_PRO_MONTHLY_PRICE_ID) {
-    throw new Error("STRIPE_PRO_MONTHLY_PRICE_ID is missing but Stripe is enabled.");
+  if (!process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID) {
+    throw new Error("STRIPE_PREMIUM_MONTHLY_PRICE_ID is missing but Stripe is enabled.");
   }
-  if (!process.env.STRIPE_PRO_YEARLY_PRICE_ID) {
-    throw new Error("STRIPE_PRO_YEARLY_PRICE_ID is missing but Stripe is enabled.");
+  if (!process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID) {
+    throw new Error("STRIPE_PREMIUM_YEARLY_PRICE_ID is missing but Stripe is enabled.");
+  }
+  if (!process.env.STRIPE_ULTRA_MONTHLY_PRICE_ID) {
+    throw new Error("STRIPE_ULTRA_MONTHLY_PRICE_ID is missing but Stripe is enabled.");
+  }
+  if (!process.env.STRIPE_ULTRA_YEARLY_PRICE_ID) {
+    throw new Error("STRIPE_ULTRA_YEARLY_PRICE_ID is missing but Stripe is enabled.");
   }
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     throw new Error("STRIPE_WEBHOOK_SECRET is missing but Stripe is enabled.");
@@ -81,9 +89,14 @@ const authPlugins: any[] = [];
 if (stripeEnabled) {
   const plans = [
     {
-      name: "saru",
-      priceId: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!,
-      annualDiscountPriceId: process.env.STRIPE_PRO_YEARLY_PRICE_ID!,
+      name: "premium",
+      priceId: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID!,
+      annualDiscountPriceId: process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID!,
+    },
+    {
+      name: "ultra",
+      priceId: process.env.STRIPE_ULTRA_MONTHLY_PRICE_ID!,
+      annualDiscountPriceId: process.env.STRIPE_ULTRA_YEARLY_PRICE_ID!,
     },
   ];
 

@@ -1,9 +1,13 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { streamText } from 'ai';
 import { myProvider } from '@/lib/ai/providers';
-import { getSessionCookie } from 'better-auth/cookies';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+import { assertMinimumCredits, deductCreditsFromUsage } from '@/lib/credits/usage-billing';
+import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
 
 async function handleInlineSuggestionRequest(
+  userId: string,
   contextBefore: string,
   contextAfter: string,
   suggestionLength: 'short' | 'medium' | 'long' = 'medium',
@@ -26,7 +30,7 @@ async function handleInlineSuggestionRequest(
     try {
       console.log("Starting to process inline suggestion stream");
 
-      await streamInlineSuggestion({ contextBefore, contextAfter, suggestionLength, customInstructions, writingStyleSummary, applyStyle, structureInfo, write: async (type, content) => {
+      await streamInlineSuggestion({ userId, contextBefore, contextAfter, suggestionLength, customInstructions, writingStyleSummary, applyStyle, structureInfo, write: async (type, content) => {
         if (writerClosed) return;
 
         try {
@@ -90,14 +94,21 @@ async function handleInlineSuggestionRequest(
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionCookie = getSessionCookie(request);
-    if (!sessionCookie) {
+    const readonlyHeaders = await headers();
+    const requestHeaders = new Headers(readonlyHeaders);
+    const session = await auth.api.getSession({ headers: requestHeaders });
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = session.user.id;
+    const creditError = await assertMinimumCredits(userId, MIN_CREDITS_PER_REQUEST);
+    if (creditError) return creditError;
+
     const { contextBefore = '', contextAfter = '', structureInfo = {}, aiOptions = {} } = await request.json();
     const { suggestionLength, customInstructions, writingStyleSummary, applyStyle } = aiOptions;
 
-    return handleInlineSuggestionRequest(contextBefore, contextAfter, suggestionLength, customInstructions, writingStyleSummary, applyStyle, structureInfo);
+    return handleInlineSuggestionRequest(userId, contextBefore, contextAfter, suggestionLength, customInstructions, writingStyleSummary, applyStyle, structureInfo);
   } catch (error: any) {
     console.error('Inline suggestion route error:', error);
     return NextResponse.json({ error: error.message || 'An error occurred' }, { status: 400 });
@@ -105,6 +116,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function streamInlineSuggestion({
+  userId,
   contextBefore,
   contextAfter,
   suggestionLength,
@@ -114,6 +126,7 @@ async function streamInlineSuggestion({
   structureInfo,
   write
 }: {
+  userId: string;
   contextBefore: string;
   contextAfter: string;
   suggestionLength: 'short' | 'medium' | 'long';
@@ -132,23 +145,33 @@ async function streamInlineSuggestion({
 
   const maxTokens = { short: 20, medium: 50, long: 80 }[suggestionLength || 'medium'];
 
-  const { fullStream } = streamText({
+  const result = streamText({
     model: myProvider.languageModel('artifact-model'),
     prompt,
     temperature: 0.4,
     maxOutputTokens: maxTokens
   });
 
-  let suggestionContent = '';
+  const { fullStream } = result;
   for await (const delta of fullStream) {
     const { type } = delta;
 
     if (type === 'text-delta') {
       const { text: textDelta } = delta;
-
-      suggestionContent += textDelta;
       await write('suggestion-delta', textDelta);
     }
+  }
+
+  try {
+    const usage = await result.usage;
+    await deductCreditsFromUsage({
+      userId,
+      modelId: 'artifact-model',
+      usage,
+      reason: 'inline_suggestion',
+    });
+  } catch (error) {
+    console.error('[Inline suggestion] Failed to deduct credits:', error);
   }
 }
 

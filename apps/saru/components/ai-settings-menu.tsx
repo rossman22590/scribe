@@ -24,9 +24,10 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/utils';
 import { Paywall } from '@/components/paywall';
+import { MIN_CREDITS_PER_REQUEST } from '@/lib/credits/token-pricing';
 
 export function AiSettingsMenu() {
   const { suggestionLength, customInstructions, writingSample, writingStyleSummary, applyStyle } = useAiOptionsValue();
@@ -63,9 +64,27 @@ export function AiSettingsMenu() {
       });
 
       if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || "Failed to generate style summary");
+        let errMessage = 'Failed to generate style summary';
+        try {
+          const errData = await res.json();
+          if (errData.error === 'insufficient_credits') {
+            setPaywallOpen(true);
+            mutate('/api/user/credits');
+            errMessage = `Not enough credits (need ${errData.required ?? MIN_CREDITS_PER_REQUEST}+ based on tokens used).`;
+          } else if (errData.error === 'upgrade_required') {
+            setPaywallOpen(true);
+            errMessage = errData.message ?? 'Premium or Ultra required.';
+          } else if (errData.error) {
+            errMessage = errData.error;
+          }
+        } catch {
+          const errText = await res.text();
+          if (errText) errMessage = errText;
+        }
+        throw new Error(errMessage);
       }
+
+      mutate('/api/user/credits');
 
       const { summary } = await res.json();
 

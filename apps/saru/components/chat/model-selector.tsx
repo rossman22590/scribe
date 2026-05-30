@@ -1,11 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
-import { CheckIcon } from '../icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,18 +13,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { chatModels } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
+import {
+  formatUsageCreditsLabel,
+  MIN_CREDITS_PER_REQUEST,
+} from '@/lib/credits/token-pricing';
+import { canUseModel } from '@/lib/credits/plans';
 
 import { CheckCircleFillIcon, ChevronDownIcon } from '../icons';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Paywall } from '@/components/paywall';
+
+type SubscriptionStatus = {
+  hasActiveSubscription: boolean;
+  plan: 'free' | 'premium' | 'ultra';
+};
+
+type CreditsResponse = {
+  balance: number;
+  allowance: number;
+};
 
 export function ModelSelector({
   selectedModelId,
@@ -41,16 +46,22 @@ export function ModelSelector({
   const [open, setOpen] = useState(false);
   const [isPaywallOpen, setPaywallOpen] = useState(false);
 
-  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSWR<{ hasActiveSubscription: boolean }>(
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSWR<SubscriptionStatus>(
     '/api/user/subscription-status',
     fetcher,
     { revalidateOnFocus: false }
   );
-  const hasActiveSubscription = subscriptionData?.hasActiveSubscription ?? false;
+
+  const { data: creditsData } = useSWR<CreditsResponse>('/api/user/credits', fetcher, {
+    revalidateOnFocus: true,
+  });
+
+  const plan = subscriptionData?.plan ?? 'free';
+  const balance = creditsData?.balance ?? 0;
 
   const selectedChatModel = useMemo(
     () => chatModels.find((chatModel) => chatModel.id === selectedModelId),
-    [selectedModelId],
+    [selectedModelId]
   );
 
   if (isSubscriptionLoading) {
@@ -73,7 +84,7 @@ export function ModelSelector({
           asChild
           className={cn(
             'w-fit data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-            className,
+            className
           )}
         >
           <Button
@@ -88,7 +99,9 @@ export function ModelSelector({
         <DropdownMenuContent align="start" className="w-72">
           {chatModels.map((chatModel) => {
             const { id, proOnly } = chatModel;
-            const isLocked = proOnly === true && !hasActiveSubscription;
+            const isPlanLocked = proOnly === true && !canUseModel(id, plan, true);
+            const isCreditLocked = balance < MIN_CREDITS_PER_REQUEST;
+            const isLocked = isPlanLocked || isCreditLocked;
 
             return (
               <DropdownMenuItem
@@ -101,15 +114,27 @@ export function ModelSelector({
                   }
                   setOpen(false);
                   onModelChange(id);
+                  mutate('/api/user/credits');
                 }}
                 data-active={id === selectedModelId}
                 className="group relative flex w-full items-center gap-2 px-3 py-2 cursor-pointer"
               >
                 <div className="flex flex-col gap-1 items-start flex-1">
-                  <div>{chatModel.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span>{chatModel.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatUsageCreditsLabel(id)}
+                    </span>
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {chatModel.description}
                   </div>
+                  {isPlanLocked && (
+                    <div className="text-xs text-amber-600">Requires Premium or Ultra</div>
+                  )}
+                  {isCreditLocked && !isPlanLocked && (
+                    <div className="text-xs text-amber-600">Not enough credits</div>
+                  )}
                 </div>
                 {!isLocked && id === selectedModelId && (
                   <div className="text-foreground dark:text-foreground">
@@ -120,10 +145,13 @@ export function ModelSelector({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => { e.stopPropagation(); setPaywallOpen(true); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPaywallOpen(true);
+                    }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    Upgrade
+                    {isPlanLocked ? 'Upgrade' : 'Get credits'}
                   </Button>
                 )}
               </DropdownMenuItem>
@@ -131,7 +159,12 @@ export function ModelSelector({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Paywall isOpen={isPaywallOpen} onOpenChange={setPaywallOpen} required={false} />
+      <Paywall
+        isOpen={isPaywallOpen}
+        onOpenChange={setPaywallOpen}
+        required={false}
+        highlightPlan={plan === 'premium' ? 'ultra' : 'premium'}
+      />
     </>
   );
 }

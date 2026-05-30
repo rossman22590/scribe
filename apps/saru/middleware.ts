@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   // Redirect unauthenticated users away from protected routes
-  if (pathname.startsWith('/documents')) {
+  if (pathname.startsWith('/documents') || pathname.startsWith('/admin')) {
     if (!sessionCookie) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = '/login';
@@ -30,5 +30,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/documents/:path*', '/login', '/register'],
+  matcher: ['/', '/documents/:path*', '/admin/:path*', '/login', '/register'],
 };
