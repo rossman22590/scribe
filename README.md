@@ -11,7 +11,7 @@ Monorepo:
 - Better Auth 
 - Vercel AI SDK
 - Tavily (for web search)
-
+ 
 ## Setup
 
 From the project root:
