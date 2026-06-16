@@ -35,6 +35,31 @@ function generateId(length = 32): string {
   return result;
 }
 
+/**
+ * Sign a cookie value using HMAC-SHA256 exactly as better-auth does internally.
+ * better-auth's getSignedCookie expects: encodeURIComponent(`${value}.${btoa(hmacSha256(value, secret))}`)
+ * The raw token is stored in DB; the signed value goes in the cookie.
+ */
+async function signCookieValue(value: string, secret: string): Promise<string> {
+  const keyData = new TextEncoder().encode(secret);
+  const cryptoKey = await crypto.webcrypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signatureBuffer = await crypto.webcrypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    new TextEncoder().encode(value)
+  );
+  const base64Signature = btoa(
+    String.fromCharCode(...new Uint8Array(signatureBuffer))
+  );
+  return encodeURIComponent(`${value}.${base64Signature}`);
+}
+
 export async function GET(request: NextRequest) {
   // 1. Enforce Referer origin check (only reject if referer is present but disallowed)
   const referer = request.headers.get('referer');
@@ -87,6 +112,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid SSO token signature' }, { status: 401 });
   }
 
+  // Need BETTER_AUTH_SECRET to sign the session cookie (better-auth verifies signed cookies)
+  const authSecret = process.env.BETTER_AUTH_SECRET;
+  if (!authSecret) {
+    return NextResponse.json({ error: 'BETTER_AUTH_SECRET is not configured' }, { status: 500 });
+  }
+
   try {
     // 3. Look up the user in Scribe's DB
     const [dbUser] = await db
@@ -99,7 +130,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // 4. Create a new session in the database (direct DB insert matching better-auth format)
+    // 4. Create a new session in the database
+    //    better-auth stores the RAW token in the DB; the SIGNED version goes in the cookie
     const sessionToken = generateId(32);
     const sessionId = generateId(32);
     const now2 = new Date();
@@ -107,7 +139,7 @@ export async function GET(request: NextRequest) {
 
     await db.insert(session).values({
       id: sessionId,
-      token: sessionToken,
+      token: sessionToken,       // raw token stored in DB
       userId: dbUser.id,
       expiresAt,
       createdAt: now2,
@@ -116,22 +148,32 @@ export async function GET(request: NextRequest) {
       userAgent: request.headers.get('user-agent') ?? '',
     });
 
-    // 5. Set the better-auth session cookie (plain token — better-auth reads raw token from DB)
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieName = isProduction
-      ? '__Secure-better-auth.session_token'
-      : 'better-auth.session_token';
+    // 5. Sign the session token using BETTER_AUTH_SECRET (same as better-auth does internally)
+    //    getSignedCookie splits on last '.', verifies base64 HMAC, returns raw token to look up in DB
+    const signedTokenValue = await signCookieValue(sessionToken, authSecret);
+
+    // Detect HTTPS environment
+    const hostHeader = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'scribe-pro.vercel.app';
+    const isHttps = request.headers.get('x-forwarded-proto') === 'https' || (!hostHeader.includes('localhost') && !hostHeader.includes('127.0.0.1'));
+    const isProduction = process.env.NODE_ENV === 'production' || isHttps;
 
     const redirectUrl = request.nextUrl.searchParams.get('next') || '/documents';
-    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+    const protocol = isHttps ? 'https' : 'http';
+    const response = NextResponse.redirect(new URL(redirectUrl, `${protocol}://${hostHeader}`));
 
-    response.cookies.set(cookieName, sessionToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      path: '/',
-      expires: expiresAt,
-    });
+    const cookieExpires = expiresAt.toUTCString();
+
+    // Set both cookie variants so it works regardless of which name better-auth checks first
+    response.headers.append(
+      'Set-Cookie',
+      `better-auth.session_token=${signedTokenValue}; Path=/; HttpOnly; SameSite=Lax; Expires=${cookieExpires}${isProduction ? '; Secure' : ''}`
+    );
+    if (isHttps) {
+      response.headers.append(
+        'Set-Cookie',
+        `__Secure-better-auth.session_token=${signedTokenValue}; Path=/; HttpOnly; SameSite=Lax; Secure; Expires=${cookieExpires}`
+      );
+    }
 
     console.log(`[SSO] User ${dbUser.email} logged in via SSO from ${referer}`);
     return response;
