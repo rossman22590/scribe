@@ -8,12 +8,42 @@ import {
  * 1 credit = this many USD of OpenRouter API spend.
  * Premium 1000 cr ≈ $10/mo, Ultra 3000 cr ≈ $30/mo.
  */
-export const CREDIT_USD_VALUE = Number(process.env.CREDIT_USD_VALUE ?? 0.01);
+/**
+ * Parse a numeric env var, falling back to the default when it is missing,
+ * unparseable, or out of range. A bad value must never reach the billing math:
+ * NaN propagates through the cost calculation, trips the integer check in
+ * deductCredits, and the resulting throw is caught by the callers — which means
+ * a single typo'd env var silently serves every request for free.
+ */
+const numericEnv = (
+  name: string,
+  fallback: number,
+  { min }: { min: number }
+): number => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
 
-/** Global markup on token-derived charges (2 = 100% more expensive than raw OR cost). */
-export const CREDIT_COST_MULTIPLIER = Number(
-  process.env.CREDIT_COST_MULTIPLIER ?? 2
-);
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < min) {
+    console.warn(
+      `[credits] Ignoring invalid ${name}="${raw}" (must be a finite number >= ${min}); using ${fallback}.`
+    );
+    return fallback;
+  }
+  return parsed;
+};
+
+export const CREDIT_USD_VALUE = numericEnv('CREDIT_USD_VALUE', 0.01, {
+  min: Number.MIN_VALUE,
+});
+
+/**
+ * Global markup on token-derived charges (2 = 100% more expensive than raw OR
+ * cost). Floored at 1: the markup may be configured away, but never below cost.
+ */
+export const CREDIT_COST_MULTIPLIER = numericEnv('CREDIT_COST_MULTIPLIER', 2, {
+  min: 1,
+});
 
 /**
  * OpenRouter list price: USD per 1 million tokens.
@@ -25,46 +55,69 @@ export const CREDIT_COST_MULTIPLIER = Number(
 export const OPENROUTER_USD_PER_MILLION: Record<string, OpenRouterUsdPerMillion> =
   {
     'anthropic/claude-haiku-4.5': {
-      inputUsdPerMillion: Number(
-        process.env.OR_PRICE_HAIKU_INPUT_PER_M ?? 1.0
-      ),
-      outputUsdPerMillion: Number(
-        process.env.OR_PRICE_HAIKU_OUTPUT_PER_M ?? 5.0
-      ),
+      inputUsdPerMillion: numericEnv('OR_PRICE_HAIKU_INPUT_PER_M', 1.0, { min: 0 }),
+      outputUsdPerMillion: numericEnv('OR_PRICE_HAIKU_OUTPUT_PER_M', 5.0, { min: 0 }),
     },
     'anthropic/claude-sonnet-5': {
-      inputUsdPerMillion: Number(
-        process.env.OR_PRICE_SONNET_INPUT_PER_M ?? 2.0
-      ),
-      outputUsdPerMillion: Number(
-        process.env.OR_PRICE_SONNET_OUTPUT_PER_M ?? 10.0
-      ),
+      inputUsdPerMillion: numericEnv('OR_PRICE_SONNET_INPUT_PER_M', 2.0, { min: 0 }),
+      outputUsdPerMillion: numericEnv('OR_PRICE_SONNET_OUTPUT_PER_M', 10.0, { min: 0 }),
     },
     'openai/gpt-5.6-sol': {
-      inputUsdPerMillion: Number(process.env.OR_PRICE_SOL_INPUT_PER_M ?? 5.0),
-      outputUsdPerMillion: Number(
-        process.env.OR_PRICE_SOL_OUTPUT_PER_M ?? 30.0
-      ),
+      inputUsdPerMillion: numericEnv('OR_PRICE_SOL_INPUT_PER_M', 5.0, { min: 0 }),
+      outputUsdPerMillion: numericEnv('OR_PRICE_SOL_OUTPUT_PER_M', 30.0, { min: 0 }),
     },
     'openai/gpt-5.6-terra': {
-      inputUsdPerMillion: Number(process.env.OR_PRICE_TERRA_INPUT_PER_M ?? 1.0),
-      outputUsdPerMillion: Number(
-        process.env.OR_PRICE_TERRA_OUTPUT_PER_M ?? 6.0
-      ),
+      inputUsdPerMillion: numericEnv('OR_PRICE_TERRA_INPUT_PER_M', 1.0, { min: 0 }),
+      outputUsdPerMillion: numericEnv('OR_PRICE_TERRA_OUTPUT_PER_M', 6.0, { min: 0 }),
     },
   };
 
+const maxKnownPrice = (key: keyof OpenRouterUsdPerMillion): number =>
+  Math.max(
+    ...Object.values(OPENROUTER_USD_PER_MILLION).map((price) => price[key])
+  );
+
+/**
+ * Pricing for a slug that is not in the table above.
+ *
+ * Deliberately the most expensive known rate, not an average: an unpriced model
+ * is billed as if it were the priciest one we serve, so a slug override (via the
+ * OPENROUTER_*_MODEL env vars) can never be billed below its real cost. Erring
+ * cheap here would undercharge silently — pointing the reasoning tier at a
+ * $5/$30 model while billing it at $1/$5 loses money on every call.
+ */
 const DEFAULT_OR_PRICING: OpenRouterUsdPerMillion = {
-  inputUsdPerMillion: Number(process.env.OR_PRICE_DEFAULT_INPUT_PER_M ?? 1.0),
-  outputUsdPerMillion: Number(process.env.OR_PRICE_DEFAULT_OUTPUT_PER_M ?? 5.0),
+  inputUsdPerMillion: numericEnv(
+    'OR_PRICE_DEFAULT_INPUT_PER_M',
+    maxKnownPrice('inputUsdPerMillion'),
+    { min: 0 }
+  ),
+  outputUsdPerMillion: numericEnv(
+    'OR_PRICE_DEFAULT_OUTPUT_PER_M',
+    maxKnownPrice('outputUsdPerMillion'),
+    { min: 0 }
+  ),
 };
+
+const warnedUnpricedSlugs = new Set<string>();
 
 export const getOpenRouterPricing = (
   scribeModelId: string
 ): OpenRouterUsdPerMillion => {
   const slug =
     SCRIBE_MODEL_TO_OPENROUTER_SLUG[scribeModelId] ?? scribeModelId;
-  return OPENROUTER_USD_PER_MILLION[slug] ?? DEFAULT_OR_PRICING;
+  const known = OPENROUTER_USD_PER_MILLION[slug];
+  if (known) return known;
+
+  if (!warnedUnpricedSlugs.has(slug)) {
+    warnedUnpricedSlugs.add(slug);
+    console.warn(
+      `[credits] No price entry for "${slug}" — billing at the most expensive known rate ` +
+        `($${DEFAULT_OR_PRICING.inputUsdPerMillion}/$${DEFAULT_OR_PRICING.outputUsdPerMillion} per 1M). ` +
+        `Add it to OPENROUTER_USD_PER_MILLION.`
+    );
+  }
+  return DEFAULT_OR_PRICING;
 };
 
 /** Raw OpenRouter API cost in USD for token usage */

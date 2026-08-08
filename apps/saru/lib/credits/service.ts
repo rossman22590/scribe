@@ -172,18 +172,28 @@ export const refillCreditsForPlan = async (
 
 export type DeductCreditsResult =
   | { ok: true; balance: number }
-  | { ok: false; balance: number; required: number };
+  | { ok: false; balance: number; required: number; captured: number };
 
 export const deductCredits = async ({
   userId,
   cost,
   reason,
   metadata,
+  allowPartial = false,
 }: {
   userId: string;
   cost: number;
   reason: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Post-hoc billing only. When the balance cannot cover `cost`, take whatever
+   * is left instead of charging nothing. The API call has already been paid for
+   * upstream, so refusing the charge outright means serving it for free — and
+   * because the balance is left untouched, the user stays above the pre-flight
+   * minimum and can repeat it indefinitely. Draining to zero bounds the loss to
+   * a single request and locks the account out until its next refill.
+   */
+  allowPartial?: boolean;
 }): Promise<DeductCreditsResult> => {
   if (!Number.isInteger(cost) || cost <= 0) {
     throw new Error('Credit cost must be a positive whole number');
@@ -212,8 +222,44 @@ export const deductCredits = async ({
         .from(schema.userCredits)
         .where(eq(schema.userCredits.userId, userId))
         .limit(1);
+      const available = current?.balance ?? 0;
 
-      return { ok: false, balance: current?.balance ?? 0, required: cost };
+      if (!allowPartial || available <= 0) {
+        return { ok: false, balance: available, required: cost, captured: 0 };
+      }
+
+      // Take what is there. Guarding on the balance we just read keeps this
+      // safe against a concurrent deduction: if it moved, we capture nothing
+      // rather than over-charging.
+      const [drained] = await tx
+        .update(schema.userCredits)
+        .set({ balance: 0, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.userCredits.userId, userId),
+            eq(schema.userCredits.balance, available),
+          ),
+        )
+        .returning({ balance: schema.userCredits.balance });
+
+      if (!drained) {
+        return { ok: false, balance: available, required: cost, captured: 0 };
+      }
+
+      await tx.insert(schema.creditTransactions).values({
+        userId,
+        amount: -available,
+        balanceAfter: 0,
+        reason,
+        metadata: {
+          ...(metadata ?? {}),
+          partialCapture: true,
+          requestedCost: cost,
+          shortfall: cost - available,
+        },
+      });
+
+      return { ok: false, balance: 0, required: cost, captured: available };
     }
 
     await tx.insert(schema.creditTransactions).values({

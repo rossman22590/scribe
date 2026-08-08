@@ -455,7 +455,9 @@ export async function POST(request: Request) {
               });
               if (!deductResult.ok) {
                 console.warn(
-                  `[Chat] Insufficient credits after stream for user ${userId}: need ${deductResult.required}, have ${deductResult.balance}`
+                  `[Chat] Insufficient credits after stream for user ${userId}: ` +
+                    `need ${deductResult.required}, captured ${deductResult.captured}, ` +
+                    `unbilled ${deductResult.required - deductResult.captured}`
                 );
               }
             } catch (error) {

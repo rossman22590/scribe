@@ -6,9 +6,12 @@ import {
   getOpenRouterPricing,
 } from './openrouter-pricing';
 
-export const MIN_CREDITS_PER_REQUEST = Number(
-  process.env.CREDIT_MIN_PER_REQUEST ?? 1
-);
+const rawMinCredits = Number(process.env.CREDIT_MIN_PER_REQUEST ?? 1);
+
+export const MIN_CREDITS_PER_REQUEST =
+  Number.isFinite(rawMinCredits) && rawMinCredits >= 0
+    ? Math.ceil(rawMinCredits)
+    : 1;
 
 /** Minimum credits per request after global multiplier */
 export const getEffectiveMinCredits = (): number =>
@@ -30,12 +33,17 @@ export const creditsFromTokenUsage = (
 ): number => {
   const costUsd = openRouterCostUsd(modelId, usage);
 
-  if (costUsd <= 0) {
+  // Non-finite guards matter as much as the <= 0 case: a NaN cost would flow
+  // into deductCredits, fail its integer check, throw, and be swallowed by the
+  // caller's try/catch — billing nothing at all. Always fall back to the
+  // minimum charge rather than to no charge.
+  if (!Number.isFinite(costUsd) || costUsd <= 0) {
     return getEffectiveMinCredits();
   }
 
   const baseCredits = Math.ceil(costUsd / CREDIT_USD_VALUE);
-  return applyCreditCostMultiplier(baseCredits);
+  const credits = applyCreditCostMultiplier(baseCredits);
+  return Number.isFinite(credits) ? credits : getEffectiveMinCredits();
 };
 
 /** Rough upper bound for pre-flight balance checks in the UI */

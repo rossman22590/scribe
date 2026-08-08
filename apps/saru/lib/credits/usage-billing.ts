@@ -41,6 +41,10 @@ export const deductCreditsFromUsage = async ({
     userId,
     cost,
     reason,
+    // The model call already happened and is already billable upstream, so a
+    // shortfall must still take whatever balance remains rather than serving
+    // it free. See deductCredits({ allowPartial }).
+    allowPartial: true,
     metadata: {
       modelId,
       inputTokens: usage?.inputTokens ?? 0,
