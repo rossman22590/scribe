@@ -37,6 +37,23 @@ export const deductCreditsFromUsage = async ({
   const costUsd = openRouterCostUsd(modelId, usage);
   const cost = creditsFromTokenUsage(modelId, usage);
 
+  const outputTokens = usage?.outputTokens ?? 0;
+  const reasoningTokens = usage?.reasoningTokens ?? 0;
+
+  // Reasoning tokens are billed as output tokens and are reported as a
+  // breakdown *within* completion_tokens, not in addition to it — so pricing
+  // outputTokens already charges for reasoning. That invariant is what makes
+  // the $30/M reasoning tier safe to bill on outputTokens alone. If an upstream
+  // ever reports them additively this comparison breaks first, and every
+  // reasoning call on that model has been undercharged.
+  if (reasoningTokens > outputTokens) {
+    console.error(
+      `[credits] ${modelId}: reasoningTokens (${reasoningTokens}) exceeds outputTokens ` +
+        `(${outputTokens}). Reasoning is being reported in addition to completion ` +
+        `tokens, not within them — billing on outputTokens undercharges this model.`
+    );
+  }
+
   return deductCredits({
     userId,
     cost,
@@ -48,7 +65,8 @@ export const deductCreditsFromUsage = async ({
     metadata: {
       modelId,
       inputTokens: usage?.inputTokens ?? 0,
-      outputTokens: usage?.outputTokens ?? 0,
+      outputTokens,
+      reasoningTokens,
       totalTokens: usage?.totalTokens ?? 0,
       costUsd,
       creditCostMultiplier: CREDIT_COST_MULTIPLIER,
