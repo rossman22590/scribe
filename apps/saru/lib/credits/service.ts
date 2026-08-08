@@ -3,11 +3,7 @@ import 'server-only';
 import { db } from '@saru/db';
 import * as schema from '@saru/db';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
-import {
-  CREDIT_ALLOWANCES,
-  type CreditPlan,
-  isStripeBillingEnforced,
-} from './config';
+import { CREDIT_ALLOWANCES, type CreditPlan } from './config';
 import { normalizePlan } from './plans';
 import { getActiveSubscriptionByUserId } from '@/lib/db/queries';
 
@@ -38,12 +34,27 @@ export type CreditBalanceInfo = {
   periodEnd: Date;
 };
 
+/**
+ * Plan applied to a user with no active subscription row.
+ *
+ * Credits are always metered and deducted, with or without Stripe — this only
+ * decides which allowance a subscription-less user is metered against. Defaults
+ * to 'free'; set CREDITS_DEFAULT_PLAN to grant a larger allowance (e.g. while
+ * Stripe checkout is not yet live) without disabling metering.
+ */
+const DEFAULT_PLAN_WITHOUT_SUBSCRIPTION: CreditPlan = normalizePlan(
+  process.env.CREDITS_DEFAULT_PLAN ?? 'free'
+);
+
+/**
+ * Always resolved from the subscription row, regardless of whether Stripe
+ * billing is enforced. Previously this returned 'ultra' for every user when
+ * STRIPE_ENABLED was unset, so paid tiers were ignored and everyone drew
+ * against the 3000-credit ultra allowance.
+ */
 const resolveEffectivePlan = async (userId: string): Promise<CreditPlan> => {
-  if (!isStripeBillingEnforced()) {
-    return 'ultra';
-  }
   const subscription = await getActiveSubscriptionByUserId({ userId });
-  if (!subscription) return 'free';
+  if (!subscription) return DEFAULT_PLAN_WITHOUT_SUBSCRIPTION;
   return normalizePlan(subscription.plan);
 };
 
