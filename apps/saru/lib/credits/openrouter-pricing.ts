@@ -1,6 +1,5 @@
 import type { LanguageModelUsage } from 'ai';
 import {
-  OPENROUTER_MODEL_SLUGS,
   SCRIBE_MODEL_TO_OPENROUTER_SLUG,
   type OpenRouterUsdPerMillion,
 } from '@/lib/ai/openrouter-models';
@@ -16,47 +15,41 @@ export const CREDIT_COST_MULTIPLIER = Number(
   process.env.CREDIT_COST_MULTIPLIER ?? 2
 );
 
-/** OpenRouter list price: USD per 1 million tokens */
+/**
+ * OpenRouter list price: USD per 1 million tokens.
+ *
+ * Keyed by slug, not by role — several roles share a slug (small, title and
+ * artifact all run Haiku 4.5), and keying by role would silently collide.
+ * Prices are OpenRouter list as of August 2026.
+ */
 export const OPENROUTER_USD_PER_MILLION: Record<string, OpenRouterUsdPerMillion> =
   {
-    [OPENROUTER_MODEL_SLUGS.small]: {
+    'anthropic/claude-haiku-4.5': {
       inputUsdPerMillion: Number(
-        process.env.OR_PRICE_HAIKU_INPUT_PER_M ?? 0.8
+        process.env.OR_PRICE_HAIKU_INPUT_PER_M ?? 1.0
       ),
       outputUsdPerMillion: Number(
-        process.env.OR_PRICE_HAIKU_OUTPUT_PER_M ?? 4.0
+        process.env.OR_PRICE_HAIKU_OUTPUT_PER_M ?? 5.0
       ),
     },
-    [OPENROUTER_MODEL_SLUGS.large]: {
+    'anthropic/claude-sonnet-5': {
       inputUsdPerMillion: Number(
-        process.env.OR_PRICE_SONNET_INPUT_PER_M ?? 3.0
+        process.env.OR_PRICE_SONNET_INPUT_PER_M ?? 2.0
       ),
       outputUsdPerMillion: Number(
-        process.env.OR_PRICE_SONNET_OUTPUT_PER_M ?? 15.0
+        process.env.OR_PRICE_SONNET_OUTPUT_PER_M ?? 10.0
       ),
     },
-    [OPENROUTER_MODEL_SLUGS.reasoning]: {
-      inputUsdPerMillion: Number(
-        process.env.OR_PRICE_GPT55_INPUT_PER_M ?? 5.0
-      ),
+    'openai/gpt-5.6-sol': {
+      inputUsdPerMillion: Number(process.env.OR_PRICE_SOL_INPUT_PER_M ?? 5.0),
       outputUsdPerMillion: Number(
-        process.env.OR_PRICE_GPT55_OUTPUT_PER_M ?? 30.0
+        process.env.OR_PRICE_SOL_OUTPUT_PER_M ?? 30.0
       ),
     },
-    [OPENROUTER_MODEL_SLUGS.artifact]: {
-      inputUsdPerMillion: Number(
-        process.env.OR_PRICE_ARTIFACT_INPUT_PER_M ?? 0.8
-      ),
+    'openai/gpt-5.6-terra': {
+      inputUsdPerMillion: Number(process.env.OR_PRICE_TERRA_INPUT_PER_M ?? 1.0),
       outputUsdPerMillion: Number(
-        process.env.OR_PRICE_ARTIFACT_OUTPUT_PER_M ?? 4.0
-      ),
-    },
-    [OPENROUTER_MODEL_SLUGS.title]: {
-      inputUsdPerMillion: Number(
-        process.env.OR_PRICE_TITLE_INPUT_PER_M ?? 0.1
-      ),
-      outputUsdPerMillion: Number(
-        process.env.OR_PRICE_TITLE_OUTPUT_PER_M ?? 0.1
+        process.env.OR_PRICE_TERRA_OUTPUT_PER_M ?? 6.0
       ),
     },
   };

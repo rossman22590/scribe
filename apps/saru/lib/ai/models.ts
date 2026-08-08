@@ -11,18 +11,24 @@ export const chatModels: Array<ChatModel> = [
   {
     id: 'chat-model-small',
     name: 'Small Model',
-    description: 'Claude 3.5 Haiku for fast everyday writing tasks',
+    description: 'Claude Haiku 4.5 for fast everyday writing tasks',
+  },
+  {
+    id: 'chat-model-balanced',
+    name: 'Balanced Model',
+    description: 'GPT-5.6 Terra for everyday drafting and reasoning',
+    proOnly: true,
   },
   {
     id: 'chat-model-large',
     name: 'Large Model',
-    description: 'Claude Sonnet 4.6 for complex drafts and edits',
+    description: 'Claude Sonnet 5 for complex drafts and edits',
     proOnly: true,
   },
   {
     id: 'chat-model-reasoning',
     name: 'Reasoning Model',
-    description: 'GPT-5.5 for advanced step-by-step reasoning',
+    description: 'GPT-5.6 Sol for advanced step-by-step reasoning',
     proOnly: true,
   },
 ];
