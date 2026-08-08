@@ -17,6 +17,20 @@ const startOfCalendarMonth = (date: Date): Date =>
 const endOfCalendarMonth = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth() + 1, 1);
 
+/**
+ * Never let a period end land in the past.
+ *
+ * A stale subscription row (an expired Stripe period, a cancelled plan) used to
+ * be written straight back as the new periodEnd. Because the reset branch fires
+ * whenever periodEnd <= now, that rewrote an already-expired date on every call
+ * and re-granted the full allowance each time — deductCredits calls
+ * ensureUserCredits first, so balances reset before every charge and the
+ * allowance was effectively unlimited. Fall back to the end of the current
+ * calendar month whenever the candidate date is not in the future.
+ */
+const nextPeriodEnd = (candidate: Date | null | undefined, now: Date): Date =>
+  candidate && candidate > now ? candidate : endOfCalendarMonth(now);
+
 export type CreditBalanceInfo = {
   balance: number;
   allowance: number;
@@ -70,9 +84,7 @@ export const ensureUserCredits = async (userId: string): Promise<CreditBalanceIn
   if (periodEnded || planChanged) {
     const periodStart =
       effectivePlan === 'free' ? startOfCalendarMonth(now) : (subscription?.periodStart ?? row.periodStart);
-    const periodEnd =
-      subscriptionPeriodEnd ??
-      (effectivePlan === 'free' ? endOfCalendarMonth(now) : endOfCalendarMonth(now));
+    const periodEnd = nextPeriodEnd(subscriptionPeriodEnd, now);
 
     await db
       .update(schema.userCredits)
@@ -107,9 +119,7 @@ export const refillCreditsForPlan = async (
   const now = new Date();
   const allowance = CREDIT_ALLOWANCES[plan];
   const periodStart = startOfCalendarMonth(now);
-  const end =
-    periodEnd ??
-    (plan === 'free' ? endOfCalendarMonth(now) : endOfCalendarMonth(now));
+  const end = nextPeriodEnd(periodEnd, now);
 
   const existing = await db
     .select()
