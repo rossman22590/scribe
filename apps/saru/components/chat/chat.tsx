@@ -17,6 +17,7 @@ import { FileText } from 'lucide-react';
 import { MentionedDocument } from './multimodal-input';
 import { useDocument } from '@/hooks/use-document';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
+import { saveChatModelAsCookie } from '@/app/api/chat/actions/chat';
 import { useAiOptionsValue } from '@/hooks/ai-options';
 import { mutate as globalMutate } from 'swr';
 import type { ChatContextPayload, ChatAiOptions } from '@/types/chat';
@@ -89,6 +90,12 @@ export function Chat({
   // Callback function to update the model state
   const handleModelChange = (newModelId: string) => {
     setSelectedChatModel(newModelId);
+    // Persist so the choice survives a reload. Local state alone reset to
+    // DEFAULT_CHAT_MODEL on every mount, which read as the picker ignoring the
+    // selection. Fire-and-forget: failing to persist must not block the switch.
+    void saveChatModelAsCookie(newModelId).catch((error) => {
+      console.error('[Chat] Failed to persist selected model:', error);
+    });
   };
 
   const [confirmedMentions, setConfirmedMentions] = useState<MentionedDocument[]>([]);

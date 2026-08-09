@@ -10,6 +10,7 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { getCurrentAdminUser } from '@/lib/admin';
 import { getCurrentDocumentsByUserId } from '@/lib/db/queries';
+import { chatModels, DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 
 export default async function DocumentsLayout({ children }: { children: ReactNode }) {
   const readonlyHeaders = await headers();
@@ -27,6 +28,19 @@ export default async function DocumentsLayout({ children }: { children: ReactNod
   const isLeftSidebarCollapsed = leftCookie
     ? leftCookie.split('=')[1] === 'false'
     : true;
+
+  // Restore the model the user last picked. Validated against chatModels so a
+  // stale or hand-edited cookie can't reach myProvider.languageModel(), which
+  // throws on an unknown alias.
+  const modelCookie = cookieHeader
+    .split('; ')
+    .find((row: string) => row.startsWith('chat-model='));
+  const cookieModelId = modelCookie
+    ? decodeURIComponent(modelCookie.split('=')[1] ?? '')
+    : '';
+  const selectedChatModel = chatModels.some((m) => m.id === cookieModelId)
+    ? cookieModelId
+    : DEFAULT_CHAT_MODEL;
 
   return (
       <SidebarProvider defaultOpenLeft={!isLeftSidebarCollapsed} defaultOpenRight={true}>
@@ -46,6 +60,7 @@ export default async function DocumentsLayout({ children }: { children: ReactNod
             >
               <Chat
                 initialMessages={[]}
+                selectedChatModel={selectedChatModel}
               />
             </ResizablePanel>
           </main>
